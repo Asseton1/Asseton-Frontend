@@ -53,7 +53,7 @@ export const PRODUCTION_ENV = {
 
 // Production-specific constants
 export const PRODUCTION_CONSTANTS = {
-  APP_NAME: 'PropertyFinder',
+  APP_NAME: 'Asseton',
   APP_VERSION: '1.0.0',
   SUPPORT_EMAIL: 'support@asseton.in',
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
