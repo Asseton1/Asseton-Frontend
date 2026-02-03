@@ -1,10 +1,8 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import Header from '../shared/Header'
 import Footer from '../shared/Footer'
 import { FaChevronLeft, FaChevronRight, FaWhatsapp, FaBed, FaBath, FaRulerCombined, FaChevronDown, FaMapMarkerAlt } from 'react-icons/fa'
-import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import heroImage from '../../assets/banner.png'
 import { getAPIConfig } from '../../config/api'
 import { propertyAPI } from '../../Services/api'
 
@@ -41,30 +39,20 @@ const dropdownStyles = `
 function UserHome() {
   const [activeTab, setActiveTab] = useState('buy')
   const [listingTypeDirty, setListingTypeDirty] = useState(false);
-  const [ownershipType, setOwnershipType] = useState('All')
-  const [rentalPeriod, setRentalPeriod] = useState('Any')
-  const scrollContainerRef = useRef(null)
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [isHovering, setIsHovering] = useState(false)
+  const [isHovering] = useState(false)
   const navigate = useNavigate()
   
   // Property search states
   const [location, setLocation] = useState('')
-  const [propertyFilter, setPropertyFilter] = useState('All')
   const [selectedPropertyType, setSelectedPropertyType] = useState('All')
-  const [bedsAndBaths, setBedsAndBaths] = useState('Beds')
   const [priceRange, setPriceRange] = useState('Price (INR)')
-  const [locationSearchResults, setLocationSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
   
   // Add state for mobile sidebar
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileMenuOpen] = useState(false);
 
   // Add these new states
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [locationError, setLocationError] = useState(null);
   const [userCoordinates, setUserCoordinates] = useState(null);
-  const [userLocation, setUserLocation] = useState(null);
   const [isLocating, setIsLocating] = useState(false);
 
   // Add new state for properties
@@ -103,7 +91,8 @@ function UserHome() {
     if (heroBanner?.image) {
       return buildImageUrl(heroBanner.image);
     }
-    return heroImage;
+    // Return null if no banner is available - will use CSS gradient fallback
+    return null;
   }, [heroBanner, buildImageUrl]);
 
   const offerBannerImage = useMemo(() => {
@@ -175,8 +164,6 @@ function UserHome() {
     }
   };
 
-  // Replace separate min/max sqft states with a single state
-  const [sqftRange, setSqftRange] = useState('Square Feet');
 
   // Add this function to get user's current location
   const getUserLocation = () => {
@@ -186,13 +173,11 @@ function UserHome() {
     }
     
     setIsLocating(true);
-    setLocationError(null);
     
     // Check if geolocation permission is granted
     navigator.permissions.query({ name: 'geolocation' }).then((permissionStatus) => {
       if (permissionStatus.state === 'denied') {
         setIsLocating(false);
-        setLocationError("Location permission denied. Please enable location access in your browser settings.");
         alert("Location permission denied. Please enable location access in your browser settings.");
         return;
       }
@@ -201,10 +186,6 @@ function UserHome() {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setIsLocating(false);
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
           setUserCoordinates({
             lat: position.coords.latitude,
             lng: position.coords.longitude
@@ -213,26 +194,25 @@ function UserHome() {
           // Reverse geocode to get address from coordinates
           reverseGeocode(position.coords.latitude, position.coords.longitude);
         },
-        (error) => {
+        (err) => {
           setIsLocating(false);
           let errorMessage = "Unable to retrieve your location";
           
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
+          switch (err.code) {
+            case err.PERMISSION_DENIED:
               errorMessage = "Location permission denied. Please enable location access in your browser settings.";
               break;
-            case error.POSITION_UNAVAILABLE:
+            case err.POSITION_UNAVAILABLE:
               errorMessage = "Location information is unavailable.";
               break;
-            case error.TIMEOUT:
+            case err.TIMEOUT:
               errorMessage = "Location request timed out.";
               break;
             default:
-              errorMessage = `Location error: ${error.message}`;
+              errorMessage = `Location error: ${err.message}`;
           }
           
-          setLocationError(errorMessage);
-          console.error("Geolocation error:", error);
+          console.error("Geolocation error:", err);
           alert(errorMessage);
         },
         {
@@ -241,16 +221,12 @@ function UserHome() {
           maximumAge: 60000
         }
       );
-    }).catch((error) => {
+    }).catch(() => {
       // Fallback for browsers that don't support permissions API
       
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setIsLocating(false);
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
           setUserCoordinates({
             lat: position.coords.latitude,
             lng: position.coords.longitude
@@ -258,26 +234,25 @@ function UserHome() {
           
           reverseGeocode(position.coords.latitude, position.coords.longitude);
         },
-        (error) => {
+        (err) => {
           setIsLocating(false);
           let errorMessage = "Unable to retrieve your location";
           
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
+          switch (err.code) {
+            case err.PERMISSION_DENIED:
               errorMessage = "Location permission denied. Please enable location access in your browser settings.";
               break;
-            case error.POSITION_UNAVAILABLE:
+            case err.POSITION_UNAVAILABLE:
               errorMessage = "Location information is unavailable.";
               break;
-            case error.TIMEOUT:
+            case err.TIMEOUT:
               errorMessage = "Location request timed out.";
               break;
             default:
-              errorMessage = `Location error: ${error.message}`;
+              errorMessage = `Location error: ${err.message}`;
           }
           
-          setLocationError(errorMessage);
-          console.error("Geolocation error:", error);
+          console.error("Geolocation error:", err);
           alert(errorMessage);
         },
         {
@@ -307,9 +282,9 @@ function UserHome() {
         
         setLocation(locality ? `${locality}, ${data.address.state || ''}` : data.display_name);
       }
-            } catch (error) {
-          // Silent fail for reverse geocoding
-        }
+    } catch {
+      // Silent fail for reverse geocoding
+    }
   };
 
   // Fetch properties on component mount
@@ -334,7 +309,7 @@ function UserHome() {
           setProperties([]);
         }
         setLoading(false);
-      } catch (error) {
+      } catch {
         setProperties([]);
         setLoading(false);
       }
@@ -372,14 +347,16 @@ function UserHome() {
   }, []);
   
   // Function to scroll to next set of items
-  const scrollNext = () => {
-    if (currentIndex + itemsToShow < properties.length) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      // Loop back to start
-      setCurrentIndex(0);
-    }
-  };
+  const scrollNext = useCallback(() => {
+    setCurrentIndex((prevIndex) => {
+      if (prevIndex + itemsToShow < properties.length) {
+        return prevIndex + 1;
+      } else {
+        // Loop back to start
+        return 0;
+      }
+    });
+  }, [itemsToShow, properties.length]);
   
   // Function to scroll to previous set of items
   const scrollPrev = () => {
@@ -402,7 +379,7 @@ function UserHome() {
     }
     
     return () => clearInterval(interval);
-  }, [currentIndex, isHovering, itemsToShow]);
+  }, [isHovering, itemsToShow, scrollNext]);
 
   // Handle search
   const handleSearch = () => {
@@ -453,7 +430,7 @@ function UserHome() {
           setHeroBanner(banners[0]);
         }
         setBannerLoading(false);
-      } catch (error) {
+      } catch {
         setBannerLoading(false);
       }
     };
@@ -478,7 +455,7 @@ function UserHome() {
           setOfferBanner(banners[0]);
         }
         setOfferBannerLoading(false);
-      } catch (error) {
+      } catch {
         setOfferBannerLoading(false);
       }
     };
@@ -522,7 +499,7 @@ function UserHome() {
             {bannerLoading ? (
               // Loading skeleton
               <div className="w-full h-full bg-gray-200 animate-pulse"></div>
-            ) : (
+            ) : heroBannerImage ? (
               <picture>
                 <img 
                   className="w-full h-full object-cover object-center md:rounded-3xl" 
@@ -531,6 +508,10 @@ function UserHome() {
                   loading="eager"
                 />
               </picture>
+            ) : (
+              <div 
+                className="w-full h-full bg-gradient-to-br from-green-600 via-green-500 to-emerald-600 md:rounded-3xl"
+              ></div>
             )}
             {/* Overlay for better text readability */}
             <div className="absolute inset-0 bg-black/50 w-full md:rounded-3xl"></div>
