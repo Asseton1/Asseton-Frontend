@@ -1,5 +1,5 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   UserGroupIcon, 
   HomeModernIcon, 
@@ -15,6 +15,8 @@ import Header from '../shared/Header';
 import Footer from '../shared/Footer';
 
 function About() {
+  const [activeFaq, setActiveFaq] = useState(0);
+
   // Team members data
   const teamMembers = [
     {
@@ -43,104 +45,121 @@ function About() {
     }
   ];
 
-  // Company stats
-  const stats = [
-    { label: 'Properties Listed', value: '10,000+', icon: <HomeModernIcon className="h-8 w-8" /> },
-    { label: 'Happy Clients', value: '5,000+', icon: <HeartIcon className="h-8 w-8" /> },
-    { label: 'Years of Experience', value: '15+', icon: <ChartBarIcon className="h-8 w-8" /> },
-    { label: 'Cities Covered', value: '50+', icon: <GlobeAltIcon className="h-8 w-8" /> }
-  ];
-
   // Values/features
   const values = [
     {
-      title: 'Trusted Expertise',
-      description: 'Our team of certified real estate professionals brings decades of combined experience to every client interaction.',
+      title: 'Property Marketing',
+      description: 'We showcase your property with professional photography and smart compaigns, reaching the rightbuyers or tenants to maximize visibility, value and speed.',
       icon: <CheckBadgeIcon className="h-6 w-6 text-green-600" />
     },
     {
-      title: 'Premium Properties',
-      description: 'We carefully curate our listings to ensure only the highest quality properties make it to our platform.',
+      title: 'Property Management',
+      description: 'Your property is your dream, your sacrifice, and your pride. If you are abroad or too busy, Asseton becomes your trusted family, managing your house, apartment, land, business space, office, or shop with care. We provide management services across all of Kerala. Our staff personally escorts clients, shows your property, and keeps it safe until it reaches the right hands',
       icon: <HomeModernIcon className="h-6 w-6 text-green-600" />
     },
     {
-      title: 'Global Reach',
-      description: 'With connections across the country, we help clients find and sell properties in any market.',
+      title: 'Documentation Support',
+      description: 'Our experts manage title checks, sale deeds agreements, and registrations with precesion ensuring every transaction is smooth, transparent and secure.',
       icon: <GlobeAltIcon className="h-6 w-6 text-green-600" />
     },
     {
-      title: 'Market Insights',
-      description: 'Our data-driven approach provides clients with valuable insights to make informed real estate decisions.',
+      title: 'Loan Assistance',
+      description: 'We connect you with top banks and institutions , guiding you through approvals and securing the best interest rates and terms with ease.',
       icon: <ChartBarIcon className="h-6 w-6 text-green-600" />
     },
     {
-      title: 'Client-Centered',
-      description: 'We prioritize your needs and preferences, ensuring a personalized experience throughout your property journey.',
+      title: 'Property Survey',
+      description: 'Accurate surveys verify boundaries, area and complience-providing clarity for valuation, construction or dispute resolution with complete confidence.',
       icon: <HeartIcon className="h-6 w-6 text-green-600" />
     },
     {
-      title: 'Commercial Expertise',
-      description: 'Beyond residential properties, we excel in commercial real estate transactions and investments.',
+      title: 'The Real Asset is Here',
+      description: 'The mainproblem faced by the people today is the inability to sell or buy properties due to commission and brocker fee. Asserton is a best solution for that. Asserton is a platform for selling, buying, rent and lease properties without brockers or intermediaries.',
       icon: <BuildingOfficeIcon className="h-6 w-6 text-green-600" />
     }
   ];
+
+  const faqItems = [
+    {
+      question: "How do I start my property search?",
+      answer: "You can begin by browsing our property listings online, using filters to narrow down your search based on location, price, property type, and amenities. Alternatively, you can contact our team directly for personalized assistance."
+    },
+    {
+      question: "What areas do you cover?",
+      answer: "We currently operate in over 50 cities nationwide, with a strong presence in major metropolitan areas and growing coverage in suburban and rural communities."
+    },
+    {
+      question: "How do you ensure property quality?",
+      answer: "Every property listed on our platform undergoes a thorough verification process. Our team inspects properties, verifies ownership documents, and ensures all listings meet our quality standards before they're published."
+    },
+    {
+      question: "Do you help with financing options?",
+      answer: "Yes, we partner with several financial institutions to offer competitive mortgage rates and financing solutions. Our team can connect you with the right financial advisors based on your needs."
+    }
+  ];
+
+  const toggleFaq = (index) => {
+    setActiveFaq((prev) => (prev === index ? null : index));
+  };
 
   return (
     <div className="min-h-screen bg-white">
       <Header />
       
-      {/* Hero Section - Clean Premium Design */}
-      <div className="relative h-[90vh] overflow-hidden bg-slate-900">
-        {/* Background image with fixed positioning like in PropertyListing */}
-        <div className="absolute inset-0 bg-fixed bg-center bg-cover" 
-             style={{backgroundImage: 'url(https://victoriarealtors.in/wp-content/uploads/2023/05/shutterstock_2066280941-1024x576.jpg)'}}>
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/40"></div>
-        </div>
-        
-        <div className="absolute inset-0 flex items-center justify-center">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1.5 }}
-            className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between"
+      {/* Hero Section - Modern Glassmorphism Banner */}
+      <section className="relative overflow-hidden bg-slate-950">
+        <div 
+          className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1600&q=80')] bg-cover bg-center scale-110 md:scale-100"
+          aria-hidden="true"
+        ></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950/90 via-slate-900/70 to-slate-950/95"></div>
+        <div className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-1/2 translate-x-32 bg-gradient-to-l from-emerald-500/20 via-transparent to-transparent blur-2xl md:block"></div>
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-slate-950 to-transparent"></div>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1.2 }}
+          className="relative mx-auto flex min-h-[80vh] w-full max-w-7xl flex-col justify-center px-4 pb-20 pt-32 sm:px-6 lg:px-8 lg:pt-36"
+        >
+          <motion.div 
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="md:flex md:items-center md:justify-center"
           >
-            <motion.div 
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 1, delay: 0.5 }}
-              className="md:w-1/2 text-center md:text-left mb-10 md:mb-0"
-            >
-              <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
-                Redefining
-                <span className="block text-white">
-                  Real Estate
-                </span>
-                Excellence
+            <div className="max-w-3xl text-center md:text-left">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm text-white/80 backdrop-blur">
+                <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
+                Experience Asseton
+              </div>
+              <h1 className="heading-1 mt-6 text-white">
+                Creating transparent real estate journeys built on trust
               </h1>
-              <p className="text-xl md:text-2xl text-gray-300 max-w-xl leading-relaxed">
-                Your journey to finding the perfect property begins with PropertyFinder's premium expertise.
+              <p className="body-large mt-6 max-w-2xl text-slate-100/80 leading-relaxed">
+                We combine human expertise with intelligent data to help you discover, manage, and elevate every property decision with confidence.
               </p>
-              <div className="mt-8 flex flex-wrap gap-4 justify-center md:justify-start">
+              <div className="mt-10 flex flex-wrap gap-4">
                 <a 
                   href="/property-listing" 
-                  className="px-8 py-3 bg-white text-slate-900 rounded-md font-medium hover:bg-gray-100 transition-all shadow-lg"
+                  className="btn-primary bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/30 hover:bg-emerald-300"
                 >
-                  Explore Properties
+                  Browse Featured Homes
                 </a>
                 <a 
                   href="/contact" 
-                  className="px-8 py-3 bg-transparent text-white border border-white rounded-md font-medium hover:bg-white/10 transition-all"
+                  className="btn-secondary border-white/40 text-white hover:bg-white/10"
                 >
-                  Contact Us
+                  Talk to an Advisor
                 </a>
               </div>
-            </motion.div>
+            </div>
           </motion.div>
-        </div>
-      </div>
+        </motion.div>
+      </section>
 
       {/* Our Story Section - With Floating Elements */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 relative">
+      <div className="max-w-7xl mx-auto container-padding section-padding relative">
         <div className="absolute top-0 right-0 -mt-20 w-64 h-64 bg-green-100 rounded-full opacity-20 blur-3xl"></div>
         <div className="absolute bottom-0 left-0 -mb-20 w-80 h-80 bg-green-100 rounded-full opacity-20 blur-3xl"></div>
         
@@ -151,13 +170,13 @@ function About() {
           viewport={{ once: true }}
           className="relative"
         >
-          <div className="flex flex-col md:flex-row gap-16 items-center">
+          <div className="responsive-flex-row gap-16 items-center">
             <motion.div 
               initial={{ opacity: 0, x: -50 }}
               whileInView={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
               viewport={{ once: true }}
-              className="md:w-1/2"
+              className="responsive-w-half"
             >
               <div className="relative">
                 <div className="absolute -top-6 -left-6 w-24 h-24 bg-green-100 rounded-lg z-0"></div>
@@ -178,24 +197,25 @@ function About() {
               whileInView={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
               viewport={{ once: true }}
-              className="md:w-1/2"
+              className="responsive-w-half"
             >
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-green-100 rounded-lg">
                   <SparklesIcon className="h-6 w-6 text-green-600" />
                 </div>
-                <h2 className="text-4xl font-bold text-gray-900">Our Story</h2>
+                <h2 className="heading-2 text-gray-900">Our Story</h2>
               </div>
               
               <div className="prose prose-lg max-w-none">
-                <p className="text-gray-600 mb-6 text-lg leading-relaxed">
-                  Founded in 2008, PropertyFinder began with a simple mission: to transform how people find and purchase real estate. What started as a small team of passionate real estate professionals has grown into one of the region's most trusted property platforms.
+                <p className="body-medium text-gray-600 mb-6 leading-relaxed">
+                  Since 2010, with 15 years of experience in the real estate industry, we have managed, sold and rented out more than 300+ properties. Because of this, all our clients have been satisfied.
                 </p>
-                <p className="text-gray-600 mb-6 text-lg leading-relaxed">
-                  Our journey has been defined by innovation, integrity, and a deep understanding of both local and international property markets. We've helped thousands of families find their dream homes and assisted investors in making informed decisions about their property portfolios.
+                <p className="body-medium text-gray-600 mb-6 leading-relaxed">
+                  In 2023, we started our preparations online, where instead of charging broker fees or commissions, we collected only a minimal service fee. With the help of professional staff, 
+                  we ensured proper verification of documents on-site and successfully delivered properties to genuine clients, managing and closing deals effectively.
                 </p>
-                <p className="text-gray-600 text-lg leading-relaxed">
-                  Today, PropertyFinder continues to lead the industry with cutting-edge technology, personalized service, and an unwavering commitment to connecting people with properties that meet their unique needs and aspirations.
+                <p className="body-medium text-gray-600 leading-relaxed">
+                  In 2025, to reach more people, we launched our website and mobile application. Our journey continues.
                 </p>
               </div>
               
@@ -217,23 +237,23 @@ function About() {
 
 
       {/* Our Values Section - Modern Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
-        <div className="text-center mb-16">
+      <div id="services" className="max-w-7xl mx-auto container-padding section-padding">
+        <div className="responsive-text-center mb-16">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">What Sets Us Apart</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <h2 className="heading-2 text-gray-900 mb-4">Services We Offer</h2>
+            <p className="body-medium text-gray-600 max-w-3xl mx-auto">
               Our commitment to excellence and client satisfaction drives everything we do
             </p>
             <div className="w-24 h-1 bg-gradient-to-r from-green-600 to-green-700 mx-auto mt-6"></div>
           </motion.div>
         </div>
         
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="responsive-grid-3 responsive-gap">
           {values.map((value, index) => (
             <motion.div 
               key={index}
@@ -246,35 +266,35 @@ function About() {
               <div className="p-3 bg-green-100 rounded-lg w-14 h-14 flex items-center justify-center mb-6">
                 {value.icon}
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">{value.title}</h3>
-              <p className="text-gray-600">{value.description}</p>
+              <h3 className="heading-5 text-gray-900 mb-3">{value.title}</h3>
+              <p className="body-small text-gray-600">{value.description}</p>
             </motion.div>
           ))}
         </div>
       </div>
 
       {/* Awards & Recognition - Elegant Display */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+      <div className="max-w-7xl mx-auto container-padding section-padding">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           viewport={{ once: true }}
-          className="text-center mb-16"
+          className="responsive-text-center mb-8 sm:mb-12 lg:mb-16"
         >
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">Awards & Recognition</h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <h2 className="heading-2 text-gray-900 mb-3 sm:mb-4">Awards & Recognition</h2>
+          <p className="body-medium text-gray-600 max-w-3xl mx-auto px-4">
             Our commitment to excellence has been recognized throughout the industry
           </p>
-          <div className="w-24 h-1 bg-gradient-to-r from-green-600 to-green-700 mx-auto mt-6"></div>
+          <div className="w-16 sm:w-20 lg:w-24 h-1 bg-gradient-to-r from-green-600 to-green-700 mx-auto mt-4 sm:mt-6"></div>
         </motion.div>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="responsive-grid-4 responsive-gap">
           {[
-            { year: '2023', award: 'Best Property Platform', icon: <TrophyIcon className="h-8 w-8 text-yellow-500" /> },
-            { year: '2022', award: 'Excellence in Customer Service', icon: <UserGroupIcon className="h-8 w-8 text-yellow-500" /> },
-            { year: '2021', award: 'Most Innovative Real Estate Company', icon: <SparklesIcon className="h-8 w-8 text-yellow-500" /> },
-            { year: '2020', award: 'Top Rated Property Marketplace', icon: <BuildingOfficeIcon className="h-8 w-8 text-yellow-500" /> }
+            { award: 'Best Property Platform', note: 'Over 1000+ satisfied clients and sold out properties', icon: <TrophyIcon className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-yellow-500" /> },
+            { award: 'Excellence in Customer Service', note: 'Save your time with a quick response for property sale or rent', icon: <UserGroupIcon className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-yellow-500" /> },
+            { award: 'Most Innovative Real Estate Company', note: 'Experienced proffesionals dedicated to perfect property', icon: <SparklesIcon className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-yellow-500" /> },
+            { award: 'Top Rated Property Marketplace', note: 'Clear transactions and secure process', icon: <BuildingOfficeIcon className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-yellow-500" /> }
           ].map((award, index) => (
             <motion.div 
               key={index}
@@ -282,13 +302,13 @@ function About() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: index * 0.1 }}
               viewport={{ once: true }}
-              className="bg-white rounded-xl shadow-md p-8 text-center border-t-4 border-yellow-500 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+              className="bg-white rounded-xl shadow-md p-4 sm:p-6 lg:p-8 text-center border-t-4 border-yellow-500 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
             >
-              <div className="flex justify-center mb-4">
+              <div className="flex justify-center mb-3 sm:mb-4">
                 {award.icon}
               </div>
-              <p className="text-gray-500 mb-2">{award.year}</p>
-              <p className="text-lg font-semibold text-gray-900">{award.award}</p>
+              <p className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">{award.award}</p>
+              <p className="text-xs sm:text-sm lg:text-base text-gray-500 leading-relaxed">{award.note}</p>
             </motion.div>
           ))}
         </div>
@@ -318,19 +338,19 @@ function About() {
               name: "Emma Thompson",
               role: "Homeowner",
               image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=256&q=80",
-              quote: "PropertyFinder made finding our family home an absolute joy. Their team was attentive to our needs and found us the perfect place within our budget."
+              quote: "Asseton made finding our family home an absolute joy. Their team was attentive to our needs and found us the perfect place within our budget."
             },
             {
               name: "James Wilson",
               role: "Property Investor",
               image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-4.0.3&auto=format&fit=crop&w=256&q=80",
-              quote: "As an investor, I appreciate PropertyFinder's market insights and professional approach. They've helped me build a profitable portfolio of properties."
+              quote: "As an investor, I appreciate Asseton's market insights and professional approach. They've helped me build a profitable portfolio of properties."
             },
             {
               name: "Sophia Garcia",
               role: "First-time Buyer",
               image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=256&q=80",
-              quote: "Buying my first apartment was intimidating, but PropertyFinder guided me through every step. I couldn't be happier with my new home!"
+              quote: "Buying my first apartment was intimidating, but Asseton guided me through every step. I couldn't be happier with my new home!"
             }
           ].map((testimonial, index) => (
             <motion.div 
@@ -383,47 +403,61 @@ function About() {
         </motion.div>
         
         <div className="space-y-6">
-          {[
-            {
-              question: "How do I start my property search?",
-              answer: "You can begin by browsing our property listings online, using filters to narrow down your search based on location, price, property type, and amenities. Alternatively, you can contact our team directly for personalized assistance."
-            },
-            {
-              question: "What areas do you cover?",
-              answer: "We currently operate in over 50 cities nationwide, with a strong presence in major metropolitan areas and growing coverage in suburban and rural communities."
-            },
-            {
-              question: "How do you ensure property quality?",
-              answer: "Every property listed on our platform undergoes a thorough verification process. Our team inspects properties, verifies ownership documents, and ensures all listings meet our quality standards before they're published."
-            },
-            {
-              question: "Do you help with financing options?",
-              answer: "Yes, we partner with several financial institutions to offer competitive mortgage rates and financing solutions. Our team can connect you with the right financial advisors based on your needs."
-            }
-          ].map((faq, index) => (
-            <motion.div 
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: index * 0.1 }}
-              viewport={{ once: true }}
-              className="bg-white rounded-xl shadow-md overflow-hidden"
-            >
-              <details className="group">
-                <summary className="flex justify-between items-center p-6 cursor-pointer">
-                  <h3 className="text-lg font-semibold text-gray-900">{faq.question}</h3>
-                  <span className="ml-6 flex-shrink-0 text-green-600 group-open:rotate-180 transition-transform duration-300">
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          {faqItems.map((faq, index) => {
+            const isOpen = activeFaq === index;
+            return (
+              <motion.div 
+                key={faq.question}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: index * 0.1 }}
+                viewport={{ once: true }}
+                layout
+                className={`rounded-2xl border border-transparent bg-white overflow-hidden transition-all duration-300 ${isOpen ? 'shadow-xl ring-1 ring-green-500/25' : 'shadow-md hover:shadow-lg'}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleFaq(index)}
+                  className="flex w-full items-center justify-between gap-4 p-6 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/60"
+                  aria-expanded={isOpen}
+                  aria-controls={`about-faq-${index}`}
+                >
+                  <span className="text-lg font-semibold text-gray-900">{faq.question}</span>
+                  <motion.span
+                    animate={{ rotate: isOpen ? 180 : 0 }}
+                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
-                  </span>
-                </summary>
-                <div className="px-6 pb-6 text-gray-600">
-                  <p>{faq.answer}</p>
-                </div>
-              </details>
-            </motion.div>
-          ))}
+                  </motion.span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      key="content"
+                      id={`about-faq-${index}`}
+                      initial={{ height: 0, opacity: 0, y: -8 }}
+                      animate={{ height: 'auto', opacity: 1, y: 0 }}
+                      exit={{ height: 0, opacity: 0, y: -8 }}
+                      transition={{ duration: 0.35, ease: [0.33, 1, 0.68, 1] }}
+                      className="px-6 overflow-hidden"
+                    >
+                      <motion.p
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: 0.1 }}
+                        className="pb-6 text-base leading-relaxed text-gray-600"
+                      >
+                        {faq.answer}
+                      </motion.p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
         </div>
       </div>
 

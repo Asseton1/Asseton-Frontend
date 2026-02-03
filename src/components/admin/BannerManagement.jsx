@@ -90,14 +90,14 @@ function BannerManagement() {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Banner Management</h1>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-800">Banner Management</h1>
         <button
           onClick={() => {
             setBannerType('hero');
             setShowAddModal(true);
           }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="w-full sm:w-auto bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
         >
           Add New Banner
         </button>
@@ -171,9 +171,9 @@ function BannerManagement() {
 
       {/* Add Banner Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Add New Banner</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">Add New Banner</h2>
             <form onSubmit={handleAddBanner}>
               <div className="space-y-4">
                 <div>
@@ -181,7 +181,7 @@ function BannerManagement() {
                   <select
                     value={bannerType}
                     onChange={(e) => setBannerType(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 sm:p-3 text-sm sm:text-base"
                   >
                     <option value="hero">Hero Banner</option>
                     <option value="offer">Offer Banner</option>
@@ -190,14 +190,14 @@ function BannerManagement() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Banner Image</label>
-                  <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                    <div className="space-y-1 text-center">
+                  <div className="mt-1 flex justify-center px-4 sm:px-6 pt-4 sm:pt-5 pb-4 sm:pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                    <div className="space-y-2 sm:space-y-1 text-center">
                       {previewImage ? (
                         <div className="relative">
                           <img
                             src={previewImage}
                             alt="Preview"
-                            className="mx-auto h-32 w-auto"
+                            className="mx-auto h-24 sm:h-32 w-auto"
                           />
                           <button
                             type="button"
@@ -207,13 +207,13 @@ function BannerManagement() {
                             }}
                             className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
                           >
-                            <FaTrash className="h-4 w-4" />
+                            <FaTrash className="h-3 w-3 sm:h-4 sm:w-4" />
                           </button>
                         </div>
                       ) : (
                         <>
-                          <FaUpload className="mx-auto h-12 w-12 text-gray-400" />
-                          <div className="flex text-sm text-gray-600">
+                          <FaUpload className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
+                          <div className="flex flex-col sm:flex-row text-sm text-gray-600 items-center justify-center">
                             <label className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
                               <span>Upload a file</span>
                               <input
@@ -235,12 +235,12 @@ function BannerManagement() {
               </div>
 
               {errors.submit && (
-                <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-md">
+                <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-md text-sm">
                   {errors.submit}
                 </div>
               )}
 
-              <div className="mt-6 flex justify-end space-x-3">
+              <div className="mt-6 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}

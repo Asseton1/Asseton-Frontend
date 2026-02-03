@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { authAPI } from '../../Services/api'
 
@@ -20,6 +20,16 @@ function AdminLogin() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const navigate = useNavigate()
   
+  // Debug: Log environment variables
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log('Environment check:')
+      console.log('VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL)
+      console.log('NODE_ENV:', import.meta.env.NODE_ENV)
+      console.log('MODE:', import.meta.env.MODE)
+    }
+  }, [])
+  
   const handleLogin = async (e) => {
     e.preventDefault()
     
@@ -33,21 +43,67 @@ function AdminLogin() {
     setError('')
     
     try {
+      if (import.meta.env.DEV) {
+        console.log('Attempting login with:', { email, password: '***' })
+      }
       const response = await authAPI.login(email, password)
-      // Store the token in localStorage
-      if (response.token) {
+      if (import.meta.env.DEV) {
+        console.log('Login response:', response)
+      }
+      
+      // Check if response has the expected structure
+      if (response && response.token) {
         localStorage.setItem('adminToken', response.token)
         localStorage.setItem('adminAuthenticated', 'true')
         if (rememberMe) {
           localStorage.setItem('adminEmail', email)
         }
+        if (import.meta.env.DEV) {
+          console.log('Login successful, navigating to dashboard')
+        }
         // Navigate to dashboard
         navigate('/admin/dashboard')
+      } else if (response && response.message) {
+        // Handle case where API returns a message instead of token
+        setError(response.message)
       } else {
-        setError('Invalid response from server')
+        if (import.meta.env.DEV) {
+          console.error('Unexpected response structure:', response)
+        }
+        setError('Invalid response from server. Please try again.')
       }
     } catch (err) {
-      setError(err.message || 'Invalid credentials')
+      if (import.meta.env.DEV) {
+        console.error('Login error:', err)
+      }
+      
+      // Handle different types of errors
+      if (err.response) {
+        // Server responded with error status
+        const errorData = err.response.data
+        if (errorData && errorData.detail) {
+          setError(errorData.detail)
+        } else if (errorData && errorData.message) {
+          setError(errorData.message)
+        } else if (errorData && typeof errorData === 'object') {
+          // Handle field-specific errors
+          const errorMessages = Object.keys(errorData).map(key => {
+            if (Array.isArray(errorData[key])) {
+              return `${key}: ${errorData[key].join(', ')}`
+            }
+            return `${key}: ${errorData[key]}`
+          }).join('\n')
+          setError(errorMessages)
+        } else {
+          setError(`Server error: ${err.response.status}`)
+        }
+      } else if (err.request) {
+        // Request was made but no response received
+        setError('No response from server. Please check your connection.')
+      } else {
+        // Something else happened
+        setError(err.message || 'An unexpected error occurred')
+      }
     } finally {
       setIsLoading(false)
     }
@@ -246,6 +302,39 @@ function AdminLogin() {
           )}
         </button>
       </div>
+      
+      {/* Debug button for testing API connection - Only show in development */}
+      {import.meta.env.DEV && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                console.log('Testing API connection...')
+                // Use local proxy during development
+                const apiUrl = import.meta.env.DEV ? '/api/accounts/login/' : `${import.meta.env.VITE_API_BASE_URL || 'https://asseton-api-bqa7a5cgffe2ghga.southindia-01.azurewebsites.net/api/'}/accounts/login/`;
+                console.log('Test API URL:', apiUrl);
+                
+                const response = await fetch(apiUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ email: 'test@test.com', password: 'test' })
+                })
+                console.log('Test response status:', response.status)
+                const data = await response.text()
+                console.log('Test response data:', data)
+              } catch (err) {
+                console.error('Test API error:', err)
+              }
+            }}
+            className="w-full py-2 px-4 border border-gray-300 rounded-lg text-sm text-gray-700 bg-gray-50 hover:bg-gray-100"
+          >
+            Test API Connection (Debug)
+          </button>
+        </div>
+      )}
     </form>
   )
   
@@ -505,10 +594,10 @@ function AdminLogin() {
   )
   
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="absolute top-0 left-0 p-6">
-        <Link to="/" className="text-blue-600 hover:text-blue-800 flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-6 sm:py-12 px-3 sm:px-4 sm:px-6 lg:px-8">
+      <div className="absolute top-0 left-0 p-3 sm:p-6">
+        <Link to="/" className="text-blue-600 hover:text-blue-800 flex items-center text-sm sm:text-base">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
           </svg>
           Back to Home
@@ -516,27 +605,26 @@ function AdminLogin() {
       </div>
       
       <div className="max-w-md w-full">
-        <div className="text-center mb-10">
-          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">
-            <span className="text-blue-600">Property</span>Finder
+        {/* Logo and Title */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-800">
+            <span className="text-blue-600">Asseton</span>
           </h1>
-          <h2 className="mt-2 text-xl font-semibold text-gray-700">
-            Admin Portal
-          </h2>
+          <h2 className="mt-2 text-lg sm:text-xl font-semibold text-gray-700">Admin Portal</h2>
         </div>
         
         <div className="bg-white shadow-2xl rounded-2xl overflow-hidden">
-          <div className="px-6 py-8 sm:p-10">
-            <div className="text-center mb-6">
-              <h3 className="text-2xl font-bold text-gray-800">Sign In</h3>
-              <p className="text-gray-500 mt-1">Access your admin dashboard</p>
+          <div className="px-4 py-6 sm:px-6 sm:py-8 sm:p-10">
+            <div className="text-center mb-4 sm:mb-6">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Sign In</h3>
+              <p className="text-sm sm:text-base text-gray-500 mt-1">Access your admin dashboard</p>
             </div>
             
             {error && (
-              <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-md" role="alert">
+              <div className="mb-4 sm:mb-6 bg-red-50 border-l-4 border-red-500 p-3 sm:p-4 rounded-md" role="alert">
                 <div className="flex">
                   <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <svg className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 001.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                     </svg>
                   </div>
@@ -553,10 +641,7 @@ function AdminLogin() {
               forgotPasswordStep === 3 ? renderPasswordReset() :
               resetSuccess ? renderResetSuccess() : null}
           </div>
-          
-
         </div>
-        
       </div>
     </div>
   )

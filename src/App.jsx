@@ -6,6 +6,7 @@ import PropertyListing from './components/user/PropertyListing'
 import PropertyDetails from './components/user/PropertyDetails'
 import ContactUs from './components/user/ContactUs'
 import About from './components/user/About'
+import PrivacyPolicy from './components/user/PrivacyPolicy'
 import ScrollToTop from './components/ScrollToTop'
 import Dashboard from './components/admin/Dashboard'
 import PropertyList from './components/admin/PropertyList'
@@ -15,6 +16,10 @@ import Settings from './components/admin/Settings'
 import AdminLayout from './components/admin/AdminLayout'
 import EditProperty from './components/admin/EditProperty'
 import Enquiries from './components/admin/Enquiries'
+import AddState from './components/admin/AddState'
+import AddDistrict from './components/admin/AddDistrict'
+import AddCity from './components/admin/AddCity'
+import NotFound from './components/shared/NotFound'
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = localStorage.getItem('adminAuthenticated') === 'true';
@@ -114,14 +119,47 @@ function App() {
           } 
         />
 
+        {/* Location Management Routes */}
+        <Route 
+          path="/admin/add-state" 
+          element={
+            <ProtectedRoute>
+              <AdminLayout>
+                <AddState />
+              </AdminLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/add-district" 
+          element={
+            <ProtectedRoute>
+              <AdminLayout>
+                <AddDistrict />
+              </AdminLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/add-city" 
+          element={
+            <ProtectedRoute>
+              <AdminLayout>
+                <AddCity />
+              </AdminLayout>
+            </ProtectedRoute>
+          } 
+        />
+
         <Route path="/property-listing" element={<PropertyListing />} />
         <Route path="/property/:id" element={<PropertyDetails />} />
 
         <Route path="/contact" element={<ContactUs />} />
-        <Route path="/about" element={<About />} /> {/* Add the new About route */}
+        <Route path="/about" element={<About />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         
-        {/* Redirect all other routes to user home */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* 404 Not Found route */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>
   )

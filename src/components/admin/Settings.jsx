@@ -8,12 +8,14 @@ function Settings() {
   // State for features
   const [features, setFeatures] = useState([]);
   const [newFeature, setNewFeature] = useState('');
-  const [editingFeature, setEditingFeature] = useState({ id: null, value: '' });
+  const [editingFeature, setEditingFeature] = useState(null);
+  const [editFeatureName, setEditFeatureName] = useState('');
 
   // State for property types
   const [propertyTypes, setPropertyTypes] = useState([]);
   const [newPropertyType, setNewPropertyType] = useState('');
-  const [editingPropertyType, setEditingPropertyType] = useState({ id: null, value: '' });
+  const [editingPropertyType, setEditingPropertyType] = useState(null);
+  const [editPropertyTypeName, setEditPropertyTypeName] = useState('');
 
   // State for deletion confirmation
   const [deleteConfirmation, setDeleteConfirmation] = useState({
@@ -50,7 +52,8 @@ function Settings() {
   };
 
   // Feature management functions
-  const addFeature = async () => {
+  const handleAddFeature = async (e) => {
+    e.preventDefault();
     if (newFeature.trim()) {
       try {
         await propertyAPI.createFeature({ name: newFeature.trim() });
@@ -64,21 +67,81 @@ function Settings() {
     }
   };
 
-  const startEditFeature = (feature) => {
-    setEditingFeature({ id: feature.id, value: feature.name });
+  const handleEditFeature = (id, name) => {
+    setEditingFeature(id);
+    setEditFeatureName(name);
   };
 
-  const saveFeatureEdit = async () => {
-    if (editingFeature.value.trim()) {
+  const handleUpdateFeature = async (id) => {
+    if (editFeatureName.trim()) {
       try {
-        await propertyAPI.updateFeature(editingFeature.id, { name: editingFeature.value.trim() });
+        await propertyAPI.updateFeature(id, { name: editFeatureName.trim() });
         await fetchFeatures();
-        setEditingFeature({ id: null, value: '' });
+        setEditingFeature(null);
+        setEditFeatureName('');
         toast.success('Feature updated successfully');
       } catch (error) {
         toast.error('Failed to update feature');
         console.error('Error updating feature:', error);
       }
+    }
+  };
+
+  const handleDeleteFeature = async (id) => {
+    try {
+      await propertyAPI.deleteFeature(id);
+      await fetchFeatures();
+      toast.success('Feature deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete feature');
+      console.error('Error deleting feature:', error);
+    }
+  };
+
+  // Property type management functions
+  const handleAddPropertyType = async (e) => {
+    e.preventDefault();
+    if (newPropertyType.trim()) {
+      try {
+        await propertyAPI.createPropertyType({ name: newPropertyType.trim() });
+        await fetchPropertyTypes();
+        setNewPropertyType('');
+        toast.success('Property type added successfully');
+      } catch (error) {
+        toast.error('Failed to add property type');
+        console.error('Error adding property type:', error);
+      }
+    }
+  };
+
+  const handleEditPropertyType = (id, name) => {
+    setEditingPropertyType(id);
+    setEditPropertyTypeName(name);
+  };
+
+  const handleUpdatePropertyType = async (id) => {
+    if (editPropertyTypeName.trim()) {
+      try {
+        await propertyAPI.updatePropertyType(id, { name: editPropertyTypeName.trim() });
+        await fetchPropertyTypes();
+        setEditingPropertyType(null);
+        setEditPropertyTypeName('');
+        toast.success('Property type updated successfully');
+      } catch (error) {
+        toast.error('Failed to update property type');
+        console.error('Error updating property type:', error);
+      }
+    }
+  };
+
+  const handleDeletePropertyType = async (id) => {
+    try {
+      await propertyAPI.deletePropertyType(id);
+      await fetchPropertyTypes();
+      toast.success('Property type deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete property type');
+      console.error('Error deleting property type:', error);
     }
   };
 
@@ -115,176 +178,167 @@ function Settings() {
     setDeleteConfirmation({ isOpen: false, type: null, id: null, name: '' });
   };
 
-  // Property type management functions
-  const addPropertyType = async () => {
-    if (newPropertyType.trim()) {
-      try {
-        await propertyAPI.createPropertyType({ name: newPropertyType.trim() });
-        await fetchPropertyTypes();
-        setNewPropertyType('');
-        toast.success('Property type added successfully');
-      } catch (error) {
-        toast.error('Failed to add property type');
-        console.error('Error adding property type:', error);
-      }
-    }
-  };
-
-  const startEditPropertyType = (propertyType) => {
-    setEditingPropertyType({ id: propertyType.id, value: propertyType.name });
-  };
-
-  const savePropertyTypeEdit = async () => {
-    if (editingPropertyType.value.trim()) {
-      try {
-        await propertyAPI.updatePropertyType(editingPropertyType.id, { name: editingPropertyType.value.trim() });
-        await fetchPropertyTypes();
-        setEditingPropertyType({ id: null, value: '' });
-        toast.success('Property type updated successfully');
-      } catch (error) {
-        toast.error('Failed to update property type');
-        console.error('Error updating property type:', error);
-      }
-    }
-  };
-
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-800 mb-8">Settings</h1>
+    <div className="w-full max-w-6xl mx-auto p-3 sm:p-4 md:p-6">
+      <h1 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 sm:mb-6">Settings</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Property Features Section */}
-        <div className="bg-white p-6 rounded-xl shadow-lg">
-          <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
-            <span className="w-2 h-8 bg-teal-600 rounded-full"></span>
-            Property Features
-          </h2>
-
-          {/* Add new feature */}
-          <div className="flex gap-2 mb-6">
+      {/* Features Section */}
+      <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 md:p-6 border border-gray-200 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-2 h-6 sm:h-8 bg-blue-600 rounded"></div>
+          <h2 className="text-base sm:text-lg font-semibold text-gray-800">Features</h2>
+        </div>
+        
+        {/* Add Feature Form */}
+        <div className="mb-6">
+          <form onSubmit={handleAddFeature} className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <input
               type="text"
               value={newFeature}
               onChange={(e) => setNewFeature(e.target.value)}
-              placeholder="Add new feature"
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              placeholder="Enter feature name"
+              className="flex-1 p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+              required
             />
             <button
-              onClick={addFeature}
-              className="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2"
+              type="submit"
+              className="w-full sm:w-auto px-4 py-2 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base font-medium"
             >
-              <FaPlus className="text-sm" />
-              Add
+              Add Feature
             </button>
-          </div>
-
-          {/* Features list */}
-          <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto">
-            {features.map((feature) => (
-              <div key={feature.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                {editingFeature.id === feature.id ? (
-                  <input
-                    type="text"
-                    value={editingFeature.value}
-                    onChange={(e) => setEditingFeature({ ...editingFeature, value: e.target.value })}
-                    className="flex-1 px-3 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-transparent mr-2"
-                  />
-                ) : (
-                  <span>{feature.name}</span>
-                )}
-                <div className="flex items-center gap-2">
-                  {editingFeature.id === feature.id ? (
-                    <button
-                      onClick={saveFeatureEdit}
-                      className="text-green-600 hover:text-green-800"
-                    >
-                      <FaSave className="text-sm" />
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => startEditFeature(feature)}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      <FaEdit className="text-sm" />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleDeleteClick('feature', feature.id, feature.name)}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    <FaTrash className="text-sm" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          </form>
         </div>
 
-        {/* Property Types Section */}
-        <div className="bg-white p-6 rounded-xl shadow-lg">
-          <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
-            <span className="w-2 h-8 bg-purple-600 rounded-full"></span>
-            Property Types
-          </h2>
+        {/* Features List */}
+        <div className="space-y-3">
+          {features.map((feature) => (
+            <div key={feature.id} className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200">
+              {editingFeature === feature.id ? (
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 flex-1">
+                  <input
+                    type="text"
+                    value={editFeatureName}
+                    onChange={(e) => setEditFeatureName(e.target.value)}
+                    className="flex-1 p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleUpdateFeature(feature.id)}
+                      className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setEditingFeature(null)}
+                      className="px-3 sm:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <span className="text-sm sm:text-base text-gray-800 flex-1">{feature.name}</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEditFeature(feature.id, feature.name)}
+                      className="p-1 sm:p-2 text-blue-600 hover:text-blue-800 transition-colors"
+                      title="Edit Feature"
+                    >
+                      <FaEdit className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteClick('feature', feature.id, feature.name)}
+                      className="p-1 sm:p-2 text-red-600 hover:text-red-800 transition-colors"
+                      title="Delete Feature"
+                    >
+                      <FaTrash className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
 
-          {/* Add new property type */}
-          <div className="flex gap-2 mb-6">
+      {/* Property Types Section */}
+      <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 md:p-6 border border-gray-200">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-2 h-6 sm:h-8 bg-green-600 rounded"></div>
+          <h2 className="text-base sm:text-lg font-semibold text-gray-800">Property Types</h2>
+        </div>
+        
+        {/* Add Property Type Form */}
+        <div className="mb-6">
+          <form onSubmit={handleAddPropertyType} className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <input
               type="text"
               value={newPropertyType}
               onChange={(e) => setNewPropertyType(e.target.value)}
-              placeholder="Add new property type"
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              placeholder="Enter property type name"
+              className="flex-1 p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
+              required
             />
             <button
-              onClick={addPropertyType}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+              type="submit"
+              className="w-full sm:w-auto px-4 py-2 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm sm:text-base font-medium"
             >
-              <FaPlus className="text-sm" />
-              Add
+              Add Property Type
             </button>
-          </div>
+          </form>
+        </div>
 
-          {/* Property types list */}
-          <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto">
-            {propertyTypes.map((propertyType) => (
-              <div key={propertyType.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                {editingPropertyType.id === propertyType.id ? (
+        {/* Property Types List */}
+        <div className="space-y-3">
+          {propertyTypes.map((type) => (
+            <div key={type.id} className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200">
+              {editingPropertyType === type.id ? (
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 flex-1">
                   <input
                     type="text"
-                    value={editingPropertyType.value}
-                    onChange={(e) => setEditingPropertyType({ ...editingPropertyType, value: e.target.value })}
-                    className="flex-1 px-3 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent mr-2"
+                    value={editPropertyTypeName}
+                    onChange={(e) => setEditPropertyTypeName(e.target.value)}
+                    className="flex-1 p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
                   />
-                ) : (
-                  <span>{propertyType.name}</span>
-                )}
-                <div className="flex items-center gap-2">
-                  {editingPropertyType.id === propertyType.id ? (
+                  <div className="flex gap-2">
                     <button
-                      onClick={savePropertyTypeEdit}
-                      className="text-green-600 hover:text-green-800"
+                      onClick={() => handleUpdatePropertyType(type.id)}
+                      className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
                     >
-                      <FaSave className="text-sm" />
+                      Save
                     </button>
-                  ) : (
                     <button
-                      onClick={() => startEditPropertyType(propertyType)}
-                      className="text-blue-600 hover:text-blue-800"
+                      onClick={() => setEditingPropertyType(null)}
+                      className="px-3 sm:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
                     >
-                      <FaEdit className="text-sm" />
+                      Cancel
                     </button>
-                  )}
-                  <button
-                    onClick={() => handleDeleteClick('propertyType', propertyType.id, propertyType.name)}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    <FaTrash className="text-sm" />
-                  </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ) : (
+                <>
+                  <span className="text-sm sm:text-base text-gray-800 flex-1">{type.name}</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEditPropertyType(type.id, type.name)}
+                      className="p-1 sm:p-2 text-blue-600 hover:text-blue-800 transition-colors"
+                      title="Edit Property Type"
+                    >
+                      <FaEdit className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteClick('propertyType', type.id, type.name)}
+                      className="p-1 sm:p-2 text-red-600 hover:text-red-800 transition-colors"
+                      title="Delete Property Type"
+                    >
+                      <FaTrash className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
         </div>
       </div>
 

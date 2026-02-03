@@ -31,79 +31,15 @@ import {
 import Header from '../shared/Header';
 import Footer from '../shared/Footer';
 import { propertyAPI } from '../../Services/api';
-import { formatAreaUnit } from '../../utils/propertyTypeUtils';
-
-const defaultProperty = {
-  feature_details: [],
-  nearby_places: [],
-  images: [],
-  property_type_details: {},
-  location: {},
-};
-
-const normalizeNearbyPlaces = (value) => {
-  if (!value) return [];
-
-  const tryParseJson = (input) => {
-    if (typeof input !== 'string') return input;
-    try {
-      const parsed = JSON.parse(input);
-      return parsed;
-    } catch (error) {
-      return input;
-    }
-  };
-
-  const normalizeItem = (item) => {
-    if (!item) return null;
-    if (typeof item === 'string') {
-      return { place: item, distance: '' };
-    }
-    if (typeof item === 'object') {
-      const place = item.place ?? item.name ?? '';
-      const distance = item.distance ?? item.value ?? '';
-      if (!place && !distance) return null;
-      return { place, distance };
-    }
-    return null;
-  };
-
-  const parsedValue = tryParseJson(value);
-  if (Array.isArray(parsedValue)) {
-    return parsedValue
-      .map(normalizeItem)
-      .filter((item) => item !== null);
-  }
-
-  const singleItem = normalizeItem(parsedValue);
-  return singleItem ? [singleItem] : [];
-};
-
-const formatPropertyAreaDisplay = (property) => {
-  const rawArea = Number(property?.area);
-
-  if (!Number.isFinite(rawArea) || rawArea <= 0) {
-    return 'N/A';
-  }
-
-  const unit = formatAreaUnit(property);
-
-  if (unit === 'cent') {
-    return `${rawArea} ${rawArea === 1 ? 'Cent' : 'Cents'}`;
-  }
-
-  if (unit === 'sqft') {
-    return `${rawArea} sq.ft.`;
-  }
-
-  return `${rawArea} ${unit}`;
-};
 
 const PropertyDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [property, setProperty] = useState(defaultProperty);
-  const [hasPropertyData, setHasPropertyData] = useState(false);
+  const [property, setProperty] = useState({
+    feature_details: [],
+    nearby_places: [],
+    images: [],
+  });
   const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -120,35 +56,34 @@ const PropertyDetails = () => {
     const fetchPropertyDetails = async () => {
       try {
         setLoading(true);
-        const propertyData = await propertyAPI.getProperty(id);
+        // Use the correct API method to get a single property
+        const propertyData = await propertyAPI.getPropertyById(id);
+        
         if (propertyData) {
-          const normalizedData = {
-            ...propertyData,
-            feature_details: Array.isArray(propertyData.feature_details)
-              ? propertyData.feature_details
-              : [],
-            nearby_places: normalizeNearbyPlaces(propertyData.nearby_places),
-            images: Array.isArray(propertyData.images) ? propertyData.images : [],
-            property_type_details: propertyData.property_type_details || {},
-            location: propertyData.location || {},
-          };
-          setProperty(normalizedData);
-          setHasPropertyData(true);
+          setProperty(propertyData);
         } else {
-          setProperty(defaultProperty);
-          setHasPropertyData(false);
+          // Property not found
+          console.error('Property not found:', id);
+          // You could redirect to a 404 page or show an error message
+          navigate('/properties');
         }
       } catch (error) {
         console.error('Error fetching property details:', error);
-        setProperty(defaultProperty);
-        setHasPropertyData(false);
+        // Handle the error gracefully
+        if (error.status === 401) {
+          // Unauthorized - redirect to properties page
+          navigate('/properties');
+        } else {
+          // Other errors - show error state
+          setProperty(null);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchPropertyDetails();
-  }, [id]);
+  }, [id, navigate]);
 
   const handleInputChange = (e) => {
     setFormData({
@@ -167,13 +102,17 @@ const PropertyDetails = () => {
   };
 
   const nextImage = () => {
-    if (!property.images?.length) return;
-    setActiveImage((prev) => (prev === property.images.length - 1 ? 0 : prev + 1));
+    const images = getPropertyArray(property, 'images');
+    if (images.length > 0) {
+      setActiveImage((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+    }
   };
 
   const prevImage = () => {
-    if (!property.images?.length) return;
-    setActiveImage((prev) => (prev === 0 ? property.images.length - 1 : prev - 1));
+    const images = getPropertyArray(property, 'images');
+    if (images.length > 0) {
+      setActiveImage((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+    }
   };
 
   const toggleFavorite = () => {
@@ -184,6 +123,72 @@ const PropertyDetails = () => {
     // This URL format will automatically use user's current location as the starting point
     const directionsUrl = `https://maps.app.goo.gl/TmRYmFNwSF3g5vrX8?g_st=ac`;
     window.open(directionsUrl, '_blank');
+  };
+
+  // Safe property access helper functions
+  const getPropertyValue = (property, key, defaultValue = '') => {
+    if (!property) return defaultValue;
+    
+    // Handle nested properties like 'property_type_details.name'
+    if (key.includes('.')) {
+      const keys = key.split('.');
+      let value = property;
+      for (const k of keys) {
+        if (value && typeof value === 'object' && value[k] !== undefined) {
+          value = value[k];
+        } else {
+          return defaultValue;
+        }
+      }
+      return value;
+    }
+    
+    return property[key] !== undefined ? property[key] : defaultValue;
+  };
+
+  // Helper function to get property type
+  const getPropertyType = (property) => {
+    const possibleFields = [
+      'property_type_name',
+      'property_type',
+      'type',
+      'category'
+    ];
+    
+    for (const field of possibleFields) {
+      if (property[field] && typeof property[field] === 'string' && property[field].trim()) {
+        return property[field].trim();
+      }
+    }
+    
+    // Try nested property type
+    if (property.property_type_details && property.property_type_details.name) {
+      return property.property_type_details.name;
+    }
+    
+    return 'Unknown';
+  };
+
+  // Helper function to check if property is Land type
+  const isLandProperty = (property) => {
+    const propertyType = getPropertyType(property).toLowerCase();
+    return propertyType === 'land' || propertyType.includes('land');
+  };
+
+  // Helper function to format area with correct unit
+  const formatAreaWithUnit = (property) => {
+    const area = getPropertyValue(property, 'area', '');
+    if (!area || area === '' || area === '0') return null;
+    
+    if (isLandProperty(property)) {
+      return `${area} cents`;
+    } else {
+      return `${area} sq.ft.`;
+    }
+  };
+
+  const getPropertyArray = (property, key, defaultValue = []) => {
+    return property && Array.isArray(property[key]) ? property[key] : defaultValue;
   };
 
   if (loading) {
@@ -198,16 +203,16 @@ const PropertyDetails = () => {
     );
   }
 
-  if (!loading && !hasPropertyData) {
+  if (!property) {
     return (
       <div className="min-h-screen flex flex-col bg-gray-50">
         <Header />
         <div className="flex-grow flex flex-col items-center justify-center p-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Property Not Found</h2>
-          <p className="text-gray-600 mb-6">The property you're looking for doesn't exist or has been removed.</p>
+          <h2 className="heading-3 text-gray-800 mb-4">Property Not Found</h2>
+          <p className="body-medium text-gray-600 mb-6">The property you're looking for doesn't exist or has been removed.</p>
           <button 
             onClick={() => navigate('/property-listing')} 
-            className="bg-green-600 text-white py-2 px-6 rounded-lg hover:bg-green-700 transition-all duration-300 flex items-center"
+            className="btn-primary flex items-center"
           >
             <FaArrowLeft className="mr-2" /> Back to Listings
           </button>
@@ -221,14 +226,14 @@ const PropertyDetails = () => {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
       <Header />
       <div className="pt-24 flex-grow">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto container-padding">
           {/* Breadcrumb - Modernized */}
           <div className="flex items-center text-sm text-gray-500 mb-8">
             <button onClick={() => navigate('/')} className="hover:text-green-600 transition-colors">Home</button>
             <span className="mx-2">•</span>
             <button onClick={() => navigate('/property-listing')} className="hover:text-green-600 transition-colors">Properties</button>
             <span className="mx-2">•</span>
-            <span className="text-green-600 font-medium">{property.title}</span>
+            <span className="text-green-600 font-medium">{getPropertyValue(property, 'title', 'Property Details')}</span>
           </div>
           
           {/* Property Header - Premium Design */}
@@ -257,8 +262,8 @@ const PropertyDetails = () => {
                   // Share functionality
                   if (navigator.share) {
                     navigator.share({
-                      title: property.title,
-                      text: `Check out this property: ${property.title}`,
+                                             title: getPropertyValue(property, 'title', 'Property'),
+                       text: `Check out this property: ${getPropertyValue(property, 'title', 'Property')}`,
                       url: window.location.href,
                     })
                     .catch((error) => console.log('Error sharing', error));
@@ -327,10 +332,10 @@ const PropertyDetails = () => {
               <div className="flex flex-col md:flex-row justify-between items-start gap-4 md:gap-6">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-3">
-                    <span className="bg-green-100 text-green-800 text-xs font-semibold px-3 py-1.5 rounded-full">{property.property_type_details?.name}</span>
-                    <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-3 py-1.5 rounded-full">{property.property_for}</span>
+                                         <span className="bg-green-100 text-green-800 text-xs font-semibold px-3 py-1.5 rounded-full">{getPropertyValue(property, 'property_type_details.name', 'Property')}</span>
+                     <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-3 py-1.5 rounded-full">{getPropertyValue(property, 'property_for', 'For Sale')}</span>
                   </div>
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800 mb-3">{property.title}</h1>
+                                     <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800 mb-3">{getPropertyValue(property, 'title', 'Property Details')}</h1>
                   <div className="flex items-center text-gray-600 mb-4">
                     <FaMapMarkerAlt 
                       className="text-blue-500 mr-2 cursor-pointer hover:text-blue-700" 
@@ -342,14 +347,11 @@ const PropertyDetails = () => {
                 </div>
                 
                 <div className="w-full md:w-auto flex flex-col items-start md:items-end">
-                  <div className="text-2xl sm:text-3xl font-bold text-green-600 mb-3 w-full md:w-auto text-left md:text-right">
-                    ₹ {Number(property.price || 0).toLocaleString()}
-                  </div>
+                                     <div className="text-2xl sm:text-3xl font-bold text-green-600 mb-3 w-full md:w-auto text-left md:text-right">₹ {getPropertyValue(property, 'price', '0')}</div>
                   <button 
                     onClick={() => {
-                      const message = `Hi, I'm interested in:\n\n*${property.title}*\nLocation: ${property.location?.city ?? ''}, ${property.location?.district ?? ''}, ${property.location?.state ?? ''}\nPrice: ₹${Number(property.price || 0).toLocaleString()}\n\nPlease provide more information about this property.`;
-                      const whatsappNumber = (property.whatsapp_number || '').toString().replace(/\D/g, '');
-                      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+                                             const message = `Hi, I'm interested in:\n\n*${getPropertyValue(property, 'title', 'Property')}*\nLocation: ${getPropertyValue(property, 'location.city', 'N/A')}, ${getPropertyValue(property, 'location.district', 'N/A')}, ${getPropertyValue(property, 'location.state', 'N/A')}\nPrice: ₹${getPropertyValue(property, 'price', '0')}\n\nPlease provide more information about this property.`;
+                       const whatsappUrl = `https://wa.me/${getPropertyValue(property, 'whatsapp_number', '').replace(/\D/g,'')}?text=${encodeURIComponent(message)}`;
                       window.open(whatsappUrl, '_blank');
                     }}
                     className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 sm:py-3 px-4 sm:px-6 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg w-full md:w-auto flex items-center justify-center"
@@ -399,7 +401,7 @@ const PropertyDetails = () => {
                         <h3 className="text-2xl font-bold text-gray-800">Property Overview</h3>
                       </div>
                       
-                      <p className="text-gray-700 leading-relaxed text-lg">{property.description}</p>
+                                             <p className="text-gray-700 leading-relaxed text-lg">{getPropertyValue(property, 'description', 'No description available.')}</p>
                       
                       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-gradient-to-br from-green-50 to-white p-6 rounded-2xl shadow-sm border border-green-100">
@@ -408,11 +410,11 @@ const PropertyDetails = () => {
                           </h4>
                           <div className="space-y-4">
                             {[
-                              { label: 'Property Type', value: property.property_type_details?.name ?? 'N/A' },
-                              { label: 'Built Year', value: property.built_year ?? 'N/A' },
-                              { label: 'Furnishing', value: property.furnishing ?? 'N/A' },
-                              { label: 'Area', value: formatPropertyAreaDisplay(property) }
-                            ].map((item, idx) => (
+                              { label: 'Property Type', value: getPropertyValue(property, 'property_type_details.name') },
+                              { label: 'Built Year', value: getPropertyValue(property, 'built_year', 'N/A'), show: !isLandProperty(property) },
+                              { label: 'Furnishing', value: getPropertyValue(property, 'furnishing', 'N/A'), show: !isLandProperty(property) },
+                              { label: 'Area', value: formatAreaWithUnit(property), show: formatAreaWithUnit(property) !== null }
+                            ].filter(item => item.show !== false).map((item, idx) => (
                               <div key={idx} className="flex justify-between items-center pb-2 border-b border-gray-100">
                                 <span className="text-gray-600">{item.label}</span>
                                 <span className="font-medium text-gray-800">{item.value}</span>
@@ -427,10 +429,10 @@ const PropertyDetails = () => {
                           </h4>
                           <div className="space-y-4">
                             {[
-                              { label: 'Bedrooms', value: property.bedrooms, icon: <FaBed className="text-green-500" /> },
-                              { label: 'Bathrooms', value: property.bathrooms, icon: <FaBath className="text-green-500" /> },
-                              { label: 'Parking', value: `${property.parking_spaces} spaces`, icon: <FaCar className="text-green-500" /> }
-                            ].map((item, idx) => (
+                              { label: 'Bedrooms', value: getPropertyValue(property, 'bedrooms', '0'), icon: <FaBed className="text-green-500" />, show: !isLandProperty(property) && getPropertyValue(property, 'bedrooms', '0') !== '0' },
+                              { label: 'Bathrooms', value: getPropertyValue(property, 'bathrooms', '0'), icon: <FaBath className="text-green-500" />, show: !isLandProperty(property) && getPropertyValue(property, 'bathrooms', '0') !== '0' },
+                              { label: 'Parking', value: `${getPropertyValue(property, 'parking_spaces', '0')} spaces`, icon: <FaCar className="text-green-500" />, show: !isLandProperty(property) && getPropertyValue(property, 'parking_spaces', '0') !== '0' }
+                            ].filter(item => item.show !== false).map((item, idx) => (
                               <div key={idx} className="flex items-center pb-2 border-b border-gray-100">
                                 <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mr-3">
                                   {item.icon}
@@ -458,8 +460,8 @@ const PropertyDetails = () => {
                       </div>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                        {property?.feature_details && property.feature_details.length > 0 ? (
-                          property.feature_details.map((feature, index) => (
+                        {getPropertyArray(property, 'feature_details').length > 0 ? (
+                          getPropertyArray(property, 'feature_details').map((feature, index) => (
                             <motion.div 
                               key={feature.id}
                               initial={{ y: 20, opacity: 0 }}
@@ -497,7 +499,7 @@ const PropertyDetails = () => {
                       </div>
                       
                       <div className="bg-white p-1 rounded-2xl shadow-lg overflow-hidden mb-8 h-[350px]">
-                        <div dangerouslySetInnerHTML={{ __html: property.google_embedded_map_link }} className="w-full h-full rounded-xl"></div>
+                                                 <div dangerouslySetInnerHTML={{ __html: getPropertyValue(property, 'google_embedded_map_link', '<div class="flex items-center justify-center h-full text-gray-500">Map not available</div>') }} className="w-full h-full rounded-xl"></div>
                       </div>
                       
                       <div className="flex items-center mb-6">
@@ -506,39 +508,63 @@ const PropertyDetails = () => {
                       </div>
                       
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {property?.nearby_places?.length ? (
-                          property.nearby_places.map((nearbyPlace, index) => {
-                            const placeLabel =
-                              typeof nearbyPlace === 'string'
-                                ? nearbyPlace
-                                : nearbyPlace?.place ?? '';
-                            const distanceLabel =
-                              typeof nearbyPlace === 'object'
-                                ? nearbyPlace?.distance ?? ''
-                                : '';
-
-                            if (!placeLabel && !distanceLabel) {
-                              return null;
-                            }
-
-                            return (
-                              <motion.div 
-                                key={`${placeLabel}-${distanceLabel}-${index}`}
-                                initial={{ y: 20, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                transition={{ delay: index * 0.05 }}
-                                className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center text-center"
-                              >
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-green-400 to-green-500 flex items-center justify-center mb-3">
-                                  <FaMapMarkerAlt className="text-white text-lg" />
+                        {getPropertyArray(property, 'nearby_places').length > 0 ? (
+                          (() => {
+                            try {
+                              let places = getPropertyArray(property, 'nearby_places');
+                              
+                              // Handle different data formats
+                              if (typeof places === 'string') {
+                                places = JSON.parse(places);
+                              }
+                              
+                              if (!Array.isArray(places)) {
+                                places = [places];
+                              }
+                              
+                              // Filter out invalid entries and ensure they are strings
+                              const validPlaces = places.filter(place => {
+                                if (typeof place === 'string') {
+                                  return place.trim().length > 0;
+                                } else if (typeof place === 'object' && place !== null) {
+                                  // Handle object format like {place: "name", distance: "2km"}
+                                  return place.place && typeof place.place === 'string';
+                                }
+                                return false;
+                              });
+                              
+                              return validPlaces.map((place, index) => {
+                                // Extract the place name from object or use string directly
+                                const placeName = typeof place === 'object' ? place.place : place;
+                                const distance = typeof place === 'object' ? place.distance : null;
+                                
+                                return (
+                                  <motion.div 
+                                    key={index}
+                                    initial={{ y: 20, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    transition={{ delay: index * 0.05 }}
+                                    className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center text-center"
+                                  >
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-green-400 to-green-500 flex items-center justify-center mb-3">
+                                      <FaMapMarkerAlt className="text-white text-lg" />
+                                    </div>
+                                    <div className="font-medium text-gray-800">{placeName}</div>
+                                    {distance && (
+                                      <div className="text-sm text-gray-500 mt-1">{distance}</div>
+                                    )}
+                                  </motion.div>
+                                );
+                              });
+                            } catch (error) {
+                              console.error('Error parsing nearby places:', error);
+                              return (
+                                <div className="col-span-full text-center py-8">
+                                  <p className="text-gray-500">Error loading nearby places</p>
                                 </div>
-                                <div className="font-medium text-gray-800">{placeLabel || 'Nearby spot'}</div>
-                                {distanceLabel && (
-                                  <div className="text-sm text-gray-500 mt-1">{distanceLabel}</div>
-                                )}
-                              </motion.div>
-                            );
-                          })
+                              );
+                            }
+                          })()
                         ) : (
                           <div className="col-span-full text-center py-8">
                             <p className="text-gray-500">No nearby places available</p>

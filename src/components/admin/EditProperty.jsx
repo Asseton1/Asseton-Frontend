@@ -36,11 +36,8 @@ function EditProperty() {
     area: '',
     description: '',
     feature_details: [],
-    google_maps_url: '',
     google_embedded_map_link: '',
     youtube_video_link: '',
-    latitude: '',
-    longitude: '',
     nearby_places: [],
     built_year: '',
     furnishing: '',
@@ -55,6 +52,22 @@ function EditProperty() {
       fetchProperty();
     }
   }, [id]);
+
+  // Ensure property type is properly set when propertyTypes are loaded
+  useEffect(() => {
+    if (propertyTypes.length > 0 && formData.property_type_details?.id && !formData.property_type_details?.name) {
+      const propertyType = propertyTypes.find(type => type.id.toString() === formData.property_type_details.id.toString());
+      if (propertyType) {
+        setFormData(prev => ({
+          ...prev,
+          property_type_details: {
+            ...prev.property_type_details,
+            name: propertyType.name
+          }
+        }));
+      }
+    }
+  }, [propertyTypes, formData.property_type_details?.id]);
 
   useEffect(() => {
     return () => {
@@ -88,27 +101,58 @@ function EditProperty() {
   const fetchProperty = async () => {
     try {
       setLoading(true);
-      const data = await propertyAPI.getProperty(id, { admin: true });
+      const data = await propertyAPI.getPropertyById(id);
       
-      // Format and validate the data
+      if (!data) {
+        setError('Property not found or failed to load. Please check the property ID and try again.');
+        setLoading(false);
+        return;
+      }
+      
+      // Debug: Log the received data
+      console.log('Property data received:', data);
+      
+      // Format and validate the data - ensure all fields are properly mapped
       const formattedData = {
-        ...data,
-        // Ensure location object exists with all required fields
+        // Basic information
+        property_for: data.property_for || '',
+        property_ownership: data.property_ownership || '',
+        contact_name: data.contact_name || '',
+        whatsapp_number: data.whatsapp_number || '',
+        phone_number: data.phone_number || '',
+        email: data.email || '',
+        title: data.title || '',
+        description: data.description || '',
+        
+        // Location information
         location: {
           state: data.location?.state || '',
           district: data.location?.district || '',
           city: data.location?.city || ''
         },
-        // Ensure numeric fields are within reasonable ranges
-        bedrooms: Math.min(Number(data.bedrooms) || 0, 10),
-        bathrooms: Math.min(Number(data.bathrooms) || 0, 10),
-        parking_spaces: Math.min(Number(data.parking_spaces) || 0, 10),
-        built_year: Math.min(Number(data.built_year) || 0, new Date().getFullYear()),
-        area: Number(data.area) || 0,
-        price: Number(data.price) || 0,
         
-        // Ensure arrays are properly formatted
+        // Property details - preserve original values
+        price: data.price || '',
+        bedrooms: data.bedrooms !== null && data.bedrooms !== undefined ? data.bedrooms : '',
+        bathrooms: data.bathrooms !== null && data.bathrooms !== undefined ? data.bathrooms : '',
+        area: data.area !== null && data.area !== undefined ? data.area : '',
+        built_year: data.built_year !== null && data.built_year !== undefined ? data.built_year : '',
+        furnishing: data.furnishing || '',
+        parking_spaces: data.parking_spaces !== null && data.parking_spaces !== undefined ? data.parking_spaces : '',
+        
+        // Property type details - ensure proper mapping
+        property_type_details: {
+          id: data.property_type_details?.id || data.property_type || '',
+          name: data.property_type_details?.name || ''
+        },
+        
+        // Media and links
+        google_embedded_map_link: data.google_embedded_map_link || '',
+        youtube_video_link: data.youtube_video_link || '',
+        
+        // Arrays and complex data
         feature_details: Array.isArray(data.feature_details) ? data.feature_details : [],
+        images: Array.isArray(data.images) ? data.images : [],
         
         // Handle nearby places properly
         nearby_places: (() => {
@@ -126,29 +170,17 @@ function EditProperty() {
             }
           }
           return [];
-        })(),
-            
-        // Ensure other fields are properly formatted
-        property_type_details: data.property_type_details || { id: '', name: '' },
-        images: Array.isArray(data.images) ? data.images : [],
-        
-        // Ensure required fields have default values
-        property_for: data.property_for || '',
-        property_ownership: data.property_ownership || '',
-        contact_name: data.contact_name || '',
-        whatsapp_number: data.whatsapp_number || '',
-        phone_number: data.phone_number || '',
-        email: data.email || '',
-        title: data.title || '',
-        description: data.description || '',
-        furnishing: data.furnishing || '',
-        google_maps_url: data.google_maps_url || '',
-        google_embedded_map_link: data.google_embedded_map_link || '',
-        youtube_video_link: data.youtube_video_link || '',
-        latitude: data.latitude || '',
-        longitude: data.longitude || ''
+        })()
       };
 
+      // Debug: Log the formatted data
+      console.log('Formatted data for form:', formattedData);
+      
+      // Validate that we have essential data
+      if (!formattedData.title && !formattedData.property_for) {
+        console.warn('Property data appears to be incomplete:', formattedData);
+      }
+      
       setFormData(formattedData);
       setError(null);
     } catch (err) {
@@ -180,6 +212,29 @@ function EditProperty() {
         [name]: value
       }));
     }
+  };
+
+  const handlePropertyTypeChange = (e) => {
+    const { value } = e.target;
+    const selectedPropertyType = propertyTypes.find(type => type.id.toString() === value);
+    const isLandProperty = selectedPropertyType && selectedPropertyType.name.toLowerCase() === 'land';
+    
+    setFormData(prev => ({
+      ...prev,
+      property_type_details: {
+        ...prev.property_type_details,
+        id: value,
+        name: selectedPropertyType ? selectedPropertyType.name : ''
+      },
+      // Clear bedrooms and bathrooms for Land properties only
+      bedrooms: isLandProperty ? '' : prev.bedrooms,
+      bathrooms: isLandProperty ? '' : prev.bathrooms,
+      // Clear furnishing and parking spaces for Land properties only
+      furnishing: isLandProperty ? '' : prev.furnishing,
+      parking_spaces: isLandProperty ? '' : prev.parking_spaces,
+      // Clear built year for Land properties only
+      built_year: isLandProperty ? '' : prev.built_year
+    }));
   };
 
   const handleNearbyPlaceChange = (index, value) => {
@@ -279,14 +334,14 @@ function EditProperty() {
       setLoading(true);
       setError(null);
 
-      // Validate numeric fields
+      // Validate numeric fields - handle both numeric and string values
       const numericFields = {
-        price: Number(formData.price),
-        bedrooms: Number(formData.bedrooms),
-        bathrooms: Number(formData.bathrooms),
-        area: Number(formData.area),
-        built_year: Number(formData.built_year),
-        parking_spaces: Number(formData.parking_spaces)
+        price: formData.price, // Keep as string to preserve "2.4 Cr" format
+        bedrooms: Number(formData.bedrooms) || 0,
+        bathrooms: Number(formData.bathrooms) || 0,
+        area: Number(formData.area) || 0,
+        built_year: Number(formData.built_year) || 0,
+        parking_spaces: Number(formData.parking_spaces) || 0
       };
 
       // Validate numeric fields are within reasonable ranges
@@ -305,8 +360,8 @@ function EditProperty() {
       if (numericFields.area <= 0) {
         throw new Error('Area must be greater than 0');
       }
-      if (numericFields.price <= 0) {
-        throw new Error('Price must be greater than 0');
+      if (!formData.price || formData.price.trim() === '') {
+        throw new Error('Price is required');
       }
 
       // Create FormData object
@@ -322,21 +377,23 @@ function EditProperty() {
       formDataToSend.append('title', formData.title.trim());
       formDataToSend.append('description', formData.description.trim());
       formDataToSend.append('furnishing', formData.furnishing);
-      formDataToSend.append('google_maps_url', formData.google_maps_url.trim());
       formDataToSend.append('google_embedded_map_link', formData.google_embedded_map_link.trim());
       formDataToSend.append('youtube_video_link', formData.youtube_video_link.trim());
-      formDataToSend.append('latitude', formData.latitude.trim());
-      formDataToSend.append('longitude', formData.longitude.trim());
 
       // Add location fields
       formDataToSend.append('state', formData.location?.state?.trim() || '');
       formDataToSend.append('district', formData.location?.district?.trim() || '');
       formDataToSend.append('city', formData.location?.city?.trim() || '');
 
-      // Add numeric fields
+      // Add numeric fields (except price which is handled separately)
       Object.entries(numericFields).forEach(([key, value]) => {
-        formDataToSend.append(key, value);
+        if (key !== 'price') {
+          formDataToSend.append(key, value);
+        }
       });
+      
+      // Add price field separately to preserve string format
+      formDataToSend.append('price', formData.price);
 
       // Add property type
       if (formData.property_type_details?.id) {
@@ -444,6 +501,10 @@ function EditProperty() {
     );
   }
 
+  // Check if current property type is Land
+  const selectedPropertyType = propertyTypes.find(type => type.id.toString() === formData.property_type_details?.id?.toString());
+  const isLandProperty = selectedPropertyType && selectedPropertyType.name.toLowerCase() === 'land';
+
   return (
     <div className="bg-gray-50">
       <div className="max-w-5xl mx-auto">
@@ -504,7 +565,7 @@ function EditProperty() {
                 >
                   <option value="">Select</option>
                   <option value="management">Management</option>
-                  <option value="direct_owner">Owner</option>
+                  <option value="direct_owner">Direct Owner</option>
                 </select>
               </div>
               <div>
@@ -512,7 +573,7 @@ function EditProperty() {
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
                   <input
-                    type="number"
+                    type="text"
                     name="price"
                     value={formData.price}
                     onChange={handleInputChange}
@@ -537,7 +598,7 @@ function EditProperty() {
                 <select
                   name="property_type_details.id"
                   value={formData.property_type_details?.id}
-                  onChange={handleInputChange}
+                  onChange={handlePropertyTypeChange}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   required
                 >
@@ -554,7 +615,10 @@ function EditProperty() {
                   name="bedrooms"
                   value={formData.bedrooms}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  disabled={isLandProperty}
+                  className={`w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                    isLandProperty ? 'bg-gray-100 cursor-not-allowed' : ''
+                  }`}
                   required
                 />
               </div>
@@ -565,12 +629,17 @@ function EditProperty() {
                   name="bathrooms"
                   value={formData.bathrooms}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  disabled={isLandProperty}
+                  className={`w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                    isLandProperty ? 'bg-gray-100 cursor-not-allowed' : ''
+                  }`}
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Area (sq.ft)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {isLandProperty ? 'Area (cents)' : 'Area (sq.ft)'}
+                </label>
                 <input
                   type="number"
                   name="area"
@@ -587,8 +656,11 @@ function EditProperty() {
                   name="built_year"
                   value={formData.built_year}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  required
+                  disabled={isLandProperty}
+                  className={`w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                    isLandProperty ? 'bg-gray-100 cursor-not-allowed' : ''
+                  }`}
+                  required={!isLandProperty}
                 />
               </div>
               <div>
@@ -598,8 +670,11 @@ function EditProperty() {
                   name="parking_spaces"
                   value={formData.parking_spaces}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  required
+                  disabled={isLandProperty}
+                  className={`w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                    isLandProperty ? 'bg-gray-100 cursor-not-allowed' : ''
+                  }`}
+                  required={!isLandProperty}
                 />
               </div>
               <div>
@@ -608,8 +683,11 @@ function EditProperty() {
                   name="furnishing"
                   value={formData.furnishing}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  required
+                  disabled={isLandProperty}
+                  className={`w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                    isLandProperty ? 'bg-gray-100 cursor-not-allowed' : ''
+                  }`}
+                  required={!isLandProperty}
                 >
                   <option value="">Select</option>
                   <option value="furnished">Furnished</option>
@@ -647,7 +725,6 @@ function EditProperty() {
                   value={formData.email}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  required
                 />
               </div>
               <div>
@@ -717,48 +794,12 @@ function EditProperty() {
                 />
               </div>
               <div className="col-span-3">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Google Maps URL</label>
-                <div className="relative">
-                  <FaMapMarkerAlt className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="url"
-                    name="google_maps_url"
-                    value={formData.google_maps_url}
-                    onChange={handleInputChange}
-                    className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="col-span-3">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Google Embedded Map Link</label>
                 <textarea
                   name="google_embedded_map_link"
                   value={formData.google_embedded_map_link}
                   onChange={handleInputChange}
                   rows="3"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Latitude</label>
-                <input
-                  type="text"
-                  name="latitude"
-                  value={formData.latitude}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Longitude</label>
-                <input
-                  type="text"
-                  name="longitude"
-                  value={formData.longitude}
-                  onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   required
                 />

@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { HiMenuAlt3, HiHome, HiClipboardList, HiCog, HiLogout, HiX, HiPlus, HiPhotograph } from 'react-icons/hi';
+import { HiMenuAlt3, HiHome, HiClipboardList, HiCog, HiLogout, HiX, HiPlus, HiPhotograph, HiMap, HiLocationMarker, HiOfficeBuilding, HiChevronDown, HiChevronRight } from 'react-icons/hi';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { HiChatBubbleBottomCenterText } from 'react-icons/hi2';
 
-const Sidebar = ({ open, setOpen }) => {
+const Sidebar = ({ open, setOpen, isMobile, onOverlayClick }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({
+    locationManagement: false
+  });
 
   const handleLogoutClick = () => {
     setShowLogoutModal(true);
@@ -23,6 +26,13 @@ const Sidebar = ({ open, setOpen }) => {
     setShowLogoutModal(false);
   };
 
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
   const menus = [
     { name: "Dashboard", link: "/admin/dashboard", icon: HiHome },
     { name: "Properties", link: "/admin/properties", icon: HiClipboardList },
@@ -33,29 +43,41 @@ const Sidebar = ({ open, setOpen }) => {
     { name: "Logout", link: "/admin/login", icon: HiLogout, margin: true },
   ];
 
+  const locationManagementItems = [
+    { name: "Add State", link: "/admin/add-state", icon: HiOfficeBuilding },
+    { name: "Add District", link: "/admin/add-district", icon: HiLocationMarker },
+    { name: "Add City", link: "/admin/add-city", icon: HiMap }
+  ];
+
   // Check if a menu item is active
   const isActive = (path) => location.pathname === path;
+  const isLocationActive = () => locationManagementItems.some(item => isActive(item.link));
+
+  const handleNavigation = (link) => {
+    if (isMobile) {
+      setOpen(false);
+    }
+    navigate(link);
+  };
 
   return (
     <>
       {/* Mobile overlay */}
-      {(open || isHovered) && (
+      {open && isMobile && (
         <div 
           className="lg:hidden fixed inset-0 bg-black/50 z-40"
-          onClick={() => {
-            setOpen(false);
-            setIsHovered(false);
-          }}
+          onClick={onOverlayClick}
         ></div>
       )}
       
+      {/* Sidebar - completely hidden on mobile when closed */}
       <div 
         className={`fixed top-0 left-0 h-screen z-50 transition-all duration-300 ease-in-out
-          ${open || isHovered ? "w-72" : "w-16"}`}
-        onMouseEnter={() => !open && setIsHovered(true)}
+          ${open ? "w-72" : isMobile ? "w-0 opacity-0 pointer-events-none" : "w-16"} ${!open && !isMobile ? "lg:block" : ""}`}
+        onMouseEnter={() => !open && !isMobile && setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className={`bg-[#0f172a] h-full w-full duration-300 text-gray-100 px-4 overflow-y-auto hide-scrollbar`}>
+        <div className={`bg-[#0f172a] h-full w-full duration-300 text-gray-100 px-4 overflow-y-auto hide-scrollbar ${!open && !isMobile ? "lg:w-16" : ""}`}>
           <div className="py-3 flex justify-end">
             <HiMenuAlt3
               size={26}
@@ -88,6 +110,7 @@ const Sidebar = ({ open, setOpen }) => {
                   <Link
                     to={menu?.link}
                     className={`${menu?.margin && "mt-5"} group flex items-center text-sm gap-3.5 font-medium p-2 hover:bg-gray-800 rounded-md ${isActive(menu.link) && 'bg-gray-800'}`}
+                    onClick={() => handleNavigation(menu.link)}
                   >
                     <div>{React.createElement(menu?.icon, { size: "20" })}</div>
                     <h2
@@ -102,6 +125,56 @@ const Sidebar = ({ open, setOpen }) => {
                 )}
               </div>
             ))}
+
+            {/* Location Management Section */}
+            <div className="mt-5">
+              <div 
+                className={`group flex items-center text-sm gap-3.5 font-medium p-2 hover:bg-gray-800 rounded-md cursor-pointer ${isLocationActive() && 'bg-gray-800'}`}
+                onClick={() => toggleSection('locationManagement')}
+              >
+                <div>{React.createElement(HiMap, { size: "20" })}</div>
+                <h2
+                  className={`whitespace-pre duration-300 ${
+                    !open && !isHovered ? "opacity-0 translate-x-28 overflow-hidden" : "opacity-100 translate-x-0"
+                  }`}
+                >
+                  Location Management
+                </h2>
+                <div className={`ml-auto transition-transform duration-200 ${
+                  !open && !isHovered ? "opacity-0" : "opacity-100"
+                }`}>
+                  {expandedSections.locationManagement ? (
+                    <HiChevronDown className="h-4 w-4" />
+                  ) : (
+                    <HiChevronRight className="h-4 w-4" />
+                  )}
+                </div>
+              </div>
+              
+              {/* Location Management Submenu */}
+              {expandedSections.locationManagement && (
+                <div className="ml-6 space-y-1 mt-2">
+                  {locationManagementItems.map((item, j) => (
+                    <Link
+                      key={j}
+                      to={item.link}
+                      className={`group flex items-center text-sm gap-3.5 font-medium p-2 hover:bg-gray-700 rounded-md ${isActive(item.link) && 'bg-gray-700'}`}
+                      onClick={() => handleNavigation(item.link)}
+                    >
+                      <div>{React.createElement(item?.icon, { size: "18" })}</div>
+                      <h2
+                        style={{ transitionDelay: `${j + 3}00ms` }}
+                        className={`whitespace-pre duration-300 ${
+                          !open && !isHovered ? "opacity-0 translate-x-28 overflow-hidden" : "opacity-100 translate-x-0"
+                        }`}
+                      >
+                        {item?.name}
+                      </h2>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
