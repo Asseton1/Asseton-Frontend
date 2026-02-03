@@ -282,35 +282,35 @@ const AddProperty = () => {
   const handlePropertyTypeChange = (e) => {
     const { value } = e.target;
     const nextPropertyType = propertyTypes.find(type => type.id.toString() === value);
-    const nextIsLandProperty =
-      nextPropertyType && nextPropertyType.name.toLowerCase() === 'land';
+    const nextIsLandForSale =
+      nextPropertyType && nextPropertyType.name.toLowerCase().includes('land for sale');
 
     setFormData(prevData => {
       const prevPropertyType = propertyTypes.find(
         type => type.id.toString() === prevData.property_type
       );
-      const prevIsLandProperty =
-        prevPropertyType && prevPropertyType.name.toLowerCase() === 'land';
+      const prevIsLandForSale =
+        prevPropertyType && prevPropertyType.name.toLowerCase().includes('land for sale');
 
       return {
         ...prevData,
         property_type: value,
-        bedrooms: nextIsLandProperty ? '0' : (prevIsLandProperty ? '' : prevData.bedrooms),
-        bathrooms: nextIsLandProperty ? '0' : (prevIsLandProperty ? '' : prevData.bathrooms),
-        furnishing: nextIsLandProperty
+        bedrooms: nextIsLandForSale ? '0' : (prevIsLandForSale ? '' : prevData.bedrooms),
+        bathrooms: nextIsLandForSale ? '0' : (prevIsLandForSale ? '' : prevData.bathrooms),
+        furnishing: nextIsLandForSale
           ? 'unfurnished'
-          : (prevIsLandProperty ? 'unfurnished' : prevData.furnishing || 'unfurnished'),
-        parking_spaces: nextIsLandProperty
+          : (prevIsLandForSale ? 'unfurnished' : prevData.furnishing || 'unfurnished'),
+        parking_spaces: nextIsLandForSale
           ? '0'
-          : (prevIsLandProperty ? '' : prevData.parking_spaces),
-        built_year: nextIsLandProperty ? '0' : (prevIsLandProperty ? '' : prevData.built_year)
+          : (prevIsLandForSale ? '' : prevData.parking_spaces),
+        built_year: nextIsLandForSale ? '1990' : (prevIsLandForSale ? '' : prevData.built_year)
       };
     });
   };
 
-  // Check if current property type is Land
+  // Check if current property type is Land for Sale
   const selectedPropertyType = propertyTypes.find(type => type.id.toString() === formData.property_type);
-  const isLandProperty = selectedPropertyType && selectedPropertyType.name.toLowerCase() === 'land';
+  const isLandForSale = selectedPropertyType && selectedPropertyType.name.toLowerCase().includes('land for sale');
 
   return (
     <div className="w-full max-w-4xl mx-auto p-3 sm:p-6">
@@ -520,7 +520,7 @@ const AddProperty = () => {
 
             <div>
               <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
-                {isLandProperty ? 'Area (cents)' : 'Area (sq ft)'}
+                {isLandForSale ? 'Area (cents)' : 'Area (sq ft)'}
               </label>
               <input
                 type="number"
@@ -539,9 +539,9 @@ const AddProperty = () => {
                 name="bedrooms"
                 value={formData.bedrooms}
                 onChange={handleInputChange}
-                disabled={isLandProperty}
+                disabled={isLandForSale}
                 className={`w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${
-                  isLandProperty ? 'bg-gray-100 cursor-not-allowed' : ''
+                  isLandForSale ? 'bg-gray-100 cursor-not-allowed' : ''
                 }`}
                 required
               />
@@ -554,9 +554,9 @@ const AddProperty = () => {
                 name="bathrooms"
                 value={formData.bathrooms}
                 onChange={handleInputChange}
-                disabled={isLandProperty}
+                disabled={isLandForSale}
                 className={`w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${
-                  isLandProperty ? 'bg-gray-100 cursor-not-allowed' : ''
+                  isLandForSale ? 'bg-gray-100 cursor-not-allowed' : ''
                 }`}
                 required
               />
@@ -601,9 +601,9 @@ const AddProperty = () => {
                 name="built_year"
                 value={formData.built_year}
                 onChange={handleInputChange}
-                disabled={isLandProperty}
+                disabled={isLandForSale}
                 className={`w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${
-                  isLandProperty ? 'bg-gray-100 cursor-not-allowed' : ''
+                  isLandForSale ? 'bg-gray-100 cursor-not-allowed' : ''
                 }`}
                 min="1900"
                 max={new Date().getFullYear()}
@@ -616,9 +616,9 @@ const AddProperty = () => {
                 name="furnishing"
                 value={formData.furnishing}
                 onChange={handleInputChange}
-                disabled={isLandProperty}
+                disabled={isLandForSale}
                 className={`w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${
-                  isLandProperty ? 'bg-gray-100 cursor-not-allowed' : ''
+                  isLandForSale ? 'bg-gray-100 cursor-not-allowed' : ''
                 }`}
               >
                 <option value="unfurnished">Unfurnished</option>
@@ -634,9 +634,9 @@ const AddProperty = () => {
                 name="parking_spaces"
                 value={formData.parking_spaces}
                 onChange={handleInputChange}
-                disabled={isLandProperty}
+                disabled={isLandForSale}
                 className={`w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${
-                  isLandProperty ? 'bg-gray-100 cursor-not-allowed' : ''
+                  isLandForSale ? 'bg-gray-100 cursor-not-allowed' : ''
                 }`}
                 min="0"
               />
