@@ -127,7 +127,7 @@ const AddProperty = () => {
   };
 
   const onDrop = useCallback(async (acceptedFiles) => {
-    const MAX_IMAGE_SIZE = 1 * 1024 * 1024; // 1 MB
+    const MAX_IMAGE_SIZE = 500 * 1024; // 500 KB
     let hasOversizedFiles = false;
 
     // Create preview URLs for the newly selected images
@@ -154,7 +154,7 @@ const AddProperty = () => {
     setSelectedImages(prev => [...prev, ...newImagePreviews]);
 
     if (hasOversizedFiles) {
-      setImageError('Each image must be 1 MB or smaller. Oversized files were skipped.');
+      setImageError('Each image must be 500 KB or smaller. Oversized files were skipped.');
     } else {
       setImageError('');
     }
