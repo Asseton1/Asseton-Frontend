@@ -191,6 +191,17 @@ function EditProperty() {
     }
   };
 
+  const handlePriceChange = (e) => {
+    const value = e.target.value;
+    // Allow only numbers (digits and at most one decimal point); backspace gives shorter string
+    const sanitized = value.replace(/[^\d.]/g, '');
+    const parts = sanitized.split('.');
+    const numericOnly = parts.length > 2
+      ? parts[0] + '.' + parts.slice(1).join('')
+      : sanitized;
+    setFormData(prev => ({ ...prev, price: numericOnly }));
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     if (name.includes('.')) {
@@ -400,6 +411,10 @@ function EditProperty() {
         formDataToSend.append('property_type', formData.property_type_details.id);
       }
 
+      // Add area_unit: 'cent' for Land for Sale, 'sqft' for other property types
+      const isLandForSale = formData.property_type_details?.name?.toLowerCase().includes('land for sale');
+      formDataToSend.append('area_unit', isLandForSale ? 'cent' : 'sqft');
+
       // Add features as an array
       if (formData.feature_details && formData.feature_details.length > 0) {
         formData.feature_details.forEach((feature) => {
@@ -574,10 +589,12 @@ function EditProperty() {
                   <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
                   <input
                     type="text"
+                    inputMode="numeric"
                     name="price"
                     value={formData.price}
-                    onChange={handleInputChange}
+                    onChange={handlePriceChange}
                     className="w-full pl-8 pr-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    placeholder="e.g. 2500000"
                     required
                   />
                 </div>
