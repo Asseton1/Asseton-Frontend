@@ -33,6 +33,13 @@ const Dashboard = () => {
     return property && Array.isArray(property[key]) ? property[key] : defaultValue;
   };
 
+  // Format area with unit from API (area_unit: 'cent' or 'sqft')
+  const formatAreaWithUnit = (property) => {
+    const area = getPropertyValue(property, 'area', '0');
+    const unit = (getPropertyValue(property, 'area_unit', 'sqft') || 'sqft').toLowerCase();
+    return unit === 'cent' ? `${area} cent` : `${area} sq.ft`;
+  };
+
   useEffect(() => {
     fetchRecentProperties();
   }, []);
@@ -200,7 +207,7 @@ const Dashboard = () => {
                           {getPropertyValue(property, 'bedrooms', '0')} Bed • {getPropertyValue(property, 'bathrooms', '0')} Bath
                         </div>
                         <div className="text-xs text-gray-500">
-                          {getPropertyValue(property, 'area', '0')} sq.ft
+                          {formatAreaWithUnit(property)}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -285,7 +292,7 @@ const Dashboard = () => {
                       <div className="space-y-1">
                         <span className="text-gray-500 text-xs font-medium">Details:</span>
                         <p className="text-gray-900 text-sm">{getPropertyValue(property, 'bedrooms', '0')} Bed • {getPropertyValue(property, 'bathrooms', '0')} Bath</p>
-                        <p className="text-xs text-gray-500">{getPropertyValue(property, 'area', '0')} sq.ft</p>
+                        <p className="text-xs text-gray-500">{formatAreaWithUnit(property)}</p>
                       </div>
                     </div>
                     
