@@ -228,7 +228,7 @@ function EditProperty() {
   const handlePropertyTypeChange = (e) => {
     const { value } = e.target;
     const selectedPropertyType = propertyTypes.find(type => type.id.toString() === value);
-    const isLandProperty = selectedPropertyType && selectedPropertyType.name.toLowerCase() === 'land';
+    const isLandForSaleType = selectedPropertyType && selectedPropertyType.name.toLowerCase().includes('land for sale');
     
     setFormData(prev => ({
       ...prev,
@@ -237,14 +237,12 @@ function EditProperty() {
         id: value,
         name: selectedPropertyType ? selectedPropertyType.name : ''
       },
-      // Clear bedrooms and bathrooms for Land properties only
-      bedrooms: isLandProperty ? '' : prev.bedrooms,
-      bathrooms: isLandProperty ? '' : prev.bathrooms,
-      // Clear furnishing and parking spaces for Land properties only
-      furnishing: isLandProperty ? '' : prev.furnishing,
-      parking_spaces: isLandProperty ? '' : prev.parking_spaces,
-      // Clear built year for Land properties only
-      built_year: isLandProperty ? '' : prev.built_year
+      // Clear bedrooms and bathrooms for Land for Sale only
+      bedrooms: isLandForSaleType ? '' : prev.bedrooms,
+      bathrooms: isLandForSaleType ? '' : prev.bathrooms,
+      furnishing: isLandForSaleType ? '' : prev.furnishing,
+      parking_spaces: isLandForSaleType ? '' : prev.parking_spaces,
+      built_year: isLandForSaleType ? '' : prev.built_year
     }));
   };
 
@@ -516,9 +514,9 @@ function EditProperty() {
     );
   }
 
-  // Check if current property type is Land
+  // Check if current property type is Land for Sale (area unit = cent)
   const selectedPropertyType = propertyTypes.find(type => type.id.toString() === formData.property_type_details?.id?.toString());
-  const isLandProperty = selectedPropertyType && selectedPropertyType.name.toLowerCase() === 'land';
+  const isLandForSale = selectedPropertyType && selectedPropertyType.name.toLowerCase().includes('land for sale');
 
   return (
     <div className="bg-gray-50">
@@ -588,7 +586,8 @@ function EditProperty() {
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
                   <input
-                    type="text"
+                    type="number"
+                    min="0"
                     inputMode="numeric"
                     name="price"
                     value={formData.price}
@@ -632,9 +631,9 @@ function EditProperty() {
                   name="bedrooms"
                   value={formData.bedrooms}
                   onChange={handleInputChange}
-                  disabled={isLandProperty}
+                  disabled={isLandForSale}
                   className={`w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                    isLandProperty ? 'bg-gray-100 cursor-not-allowed' : ''
+                    isLandForSale ? 'bg-gray-100 cursor-not-allowed' : ''
                   }`}
                   required
                 />
@@ -646,16 +645,16 @@ function EditProperty() {
                   name="bathrooms"
                   value={formData.bathrooms}
                   onChange={handleInputChange}
-                  disabled={isLandProperty}
+                  disabled={isLandForSale}
                   className={`w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                    isLandProperty ? 'bg-gray-100 cursor-not-allowed' : ''
+                    isLandForSale ? 'bg-gray-100 cursor-not-allowed' : ''
                   }`}
                   required
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {isLandProperty ? 'Area (cents)' : 'Area (sq.ft)'}
+                  {isLandForSale ? 'Area (cent)' : 'Area (sq.ft)'}
                 </label>
                 <input
                   type="number"
@@ -673,11 +672,11 @@ function EditProperty() {
                   name="built_year"
                   value={formData.built_year}
                   onChange={handleInputChange}
-                  disabled={isLandProperty}
+                  disabled={isLandForSale}
                   className={`w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                    isLandProperty ? 'bg-gray-100 cursor-not-allowed' : ''
+                    isLandForSale ? 'bg-gray-100 cursor-not-allowed' : ''
                   }`}
-                  required={!isLandProperty}
+                  required={!isLandForSale}
                 />
               </div>
               <div>
@@ -687,11 +686,11 @@ function EditProperty() {
                   name="parking_spaces"
                   value={formData.parking_spaces}
                   onChange={handleInputChange}
-                  disabled={isLandProperty}
+                  disabled={isLandForSale}
                   className={`w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                    isLandProperty ? 'bg-gray-100 cursor-not-allowed' : ''
+                    isLandForSale ? 'bg-gray-100 cursor-not-allowed' : ''
                   }`}
-                  required={!isLandProperty}
+                  required={!isLandForSale}
                 />
               </div>
               <div>
@@ -700,11 +699,11 @@ function EditProperty() {
                   name="furnishing"
                   value={formData.furnishing}
                   onChange={handleInputChange}
-                  disabled={isLandProperty}
+                  disabled={isLandForSale}
                   className={`w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                    isLandProperty ? 'bg-gray-100 cursor-not-allowed' : ''
+                    isLandForSale ? 'bg-gray-100 cursor-not-allowed' : ''
                   }`}
-                  required={!isLandProperty}
+                  required={!isLandForSale}
                 >
                   <option value="">Select</option>
                   <option value="furnished">Furnished</option>
@@ -818,7 +817,6 @@ function EditProperty() {
                   onChange={handleInputChange}
                   rows="3"
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  required
                 />
               </div>
             </div>
