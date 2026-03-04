@@ -204,6 +204,9 @@ const AddProperty = () => {
       if (!formData.state || !formData.district || !formData.city) {
         throw new Error('Please select state, district, and city');
       }
+      if (!formData.google_embedded_map_link || !String(formData.google_embedded_map_link).trim()) {
+        throw new Error('Google Embedded Map Link is required');
+      }
       const lat = formData.latitude != null && String(formData.latitude).trim() !== '' ? parseFloat(formData.latitude) : NaN;
       const lng = formData.longitude != null && String(formData.longitude).trim() !== '' ? parseFloat(formData.longitude) : NaN;
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
@@ -576,7 +579,7 @@ const AddProperty = () => {
 
             <div>
               <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
-                {isLandForSale ? 'Area (cents)' : 'Area (sq ft)'}
+                {isLandForSale ? 'Area (cent)' : 'Area (sq.ft)'}
               </label>
               <input
                 type="number"
@@ -700,12 +703,13 @@ const AddProperty = () => {
           </div>
 
           <div className="mt-4 sm:mt-6">
-            <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Google Embedded Map Link</label>
+            <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Google Embedded Map Link <span className="text-red-500">*</span></label>
             <textarea
-              name="google_map_link"
-              value={formData.google_map_link}
+              name="google_embedded_map_link"
+              value={formData.google_embedded_map_link}
               onChange={handleInputChange}
               rows="3"
+              required
               className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
               placeholder="Paste the Google Maps embed iframe code here..."
             />
