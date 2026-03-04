@@ -289,6 +289,8 @@ const suppressPageSyncRef = useRef(false);
 const initialLoadRef = useRef(true);
 const lastRequestedSignatureRef = useRef(null);
 const shouldScrollToTopRef = useRef(false);
+  // Skip one fetch when URL (e.g. type=buy) just changed so state can sync first and we only make one API call
+  const lastLocationSearchRef = useRef(location.search);
 
   // Property types state
   const [propertyTypes, setPropertyTypes] = useState([]);
@@ -558,6 +560,13 @@ const shouldScrollToTopRef = useRef(false);
 
   // Fetch properties from API with filters and pagination
   useEffect(() => {
+    // When URL just changed (e.g. user clicked Buy in header), skip this run so the sync effect
+    // can update state from URL first; the next run will fetch once with correct params.
+    if (location.search !== lastLocationSearchRef.current) {
+      lastLocationSearchRef.current = location.search;
+      return;
+    }
+
     const fetchProperties = async () => {
       let shouldHideSkeleton = false;
       let shouldStopPageTransition = false;
@@ -640,7 +649,7 @@ const shouldScrollToTopRef = useRef(false);
     };
 
     fetchProperties();
-  }, [fetchParams, filtersSignature, currentPage]);
+  }, [fetchParams, filtersSignature, currentPage, location.search]);
 
   // Fetch property types from API
   useEffect(() => {
@@ -796,22 +805,18 @@ const shouldScrollToTopRef = useRef(false);
     return number.toString();
   };
 
-  // Helper function to check if property is Land type
+  // Helper: land-type properties (e.g. Land for Sale) often have no bedrooms/bathrooms
   const isLandProperty = (property) => {
-    const propertyType = getPropertyType(property).toLowerCase();
-    return propertyType === 'land' || propertyType.includes('land');
+    const type = getPropertyType(property).toLowerCase();
+    return type === 'land' || type.includes('land');
   };
 
-  // Helper function to format area with correct unit
+  // Helper function to format area with correct unit (uses API area_unit: 'cent' or 'sqft')
   const formatAreaWithUnit = (property) => {
-    const area = property.area;
-    if (!area || area === '' || area === '0') return null;
-    
-    if (isLandProperty(property)) {
-      return `${area} cents`;
-    } else {
-      return `${area} sqft`;
-    }
+    const area = property?.area;
+    if (area == null || area === '' || area === '0') return null;
+    const unit = (property?.area_unit || 'sqft').toLowerCase();
+    return unit === 'cent' ? `${area} cent` : `${area} sq ft`;
   };
 
   // Update filteredProperties to include area filters
@@ -1082,6 +1087,8 @@ const shouldScrollToTopRef = useRef(false);
   const skipNextParseRef = useRef(true); // Skip parsing URL on first run so defaults stick
   const justAppliedDefaultsRef = useRef(false); // So sync effect doesn't re-push params before state flushes
   const hasResetOnMountRef = useRef(false);
+  const justPushedUrlRef = useRef(false); // Skip parsing once after we pushed state to URL (avoids update loop)
+  const lastAcceptedLocationSearchRef = useRef(null); // When URL changes from outside (e.g. header Rent/Buy), don't overwrite it
   useEffect(() => {
     if (location.pathname !== '/property-listing' || hasResetOnMountRef.current) return;
     hasResetOnMountRef.current = true;
@@ -1112,6 +1119,10 @@ const shouldScrollToTopRef = useRef(false);
   useEffect(() => {
     if (skipNextParseRef.current) {
       skipNextParseRef.current = false;
+      return;
+    }
+    if (justPushedUrlRef.current) {
+      justPushedUrlRef.current = false;
       return;
     }
     parseQueryParams();
@@ -1174,15 +1185,34 @@ const shouldScrollToTopRef = useRef(false);
     currentPage
   ]);
 
+  // Normalize query string (sort keys) so we don't navigate when only param order differs (avoids update loop)
+  const normalizeQuery = (search) => {
+    if (!search || !search.trim()) return '';
+    const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+    const entries = [...params.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    const sorted = new URLSearchParams(entries);
+    return sorted.toString();
+  };
+
   // Update URL when filters change (skip pushing state to URL right after we applied defaults, so lat/lng don't reappear)
   useEffect(() => {
     if (justAppliedDefaultsRef.current) {
       justAppliedDefaultsRef.current = false;
       navigate(location.pathname, { replace: true });
+      lastAcceptedLocationSearchRef.current = '';
       return;
     }
     const currentSearch = location.search.startsWith('?') ? location.search.slice(1) : location.search;
-    if (filterQueryString !== currentSearch) {
+    const normalizedFilter = normalizeQuery(filterQueryString);
+    const normalizedCurrent = normalizeQuery(currentSearch);
+    // URL was changed from outside (e.g. user clicked Rent/Buy in header) — don't overwrite; let parseQueryParams sync state
+    if (normalizedCurrent !== lastAcceptedLocationSearchRef.current) {
+      lastAcceptedLocationSearchRef.current = normalizedCurrent;
+      return;
+    }
+    if (normalizedFilter !== normalizedCurrent) {
+      justPushedUrlRef.current = true;
+      lastAcceptedLocationSearchRef.current = normalizedFilter;
       const queryString = filterQueryString ? `?${filterQueryString}` : '';
       navigate(`${location.pathname}${queryString}`, { replace: true });
     }
