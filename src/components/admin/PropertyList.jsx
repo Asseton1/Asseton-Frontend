@@ -201,6 +201,13 @@ function PropertyList() {
     return value;
   };
 
+  // Format area with unit from API (area_unit: 'cent' or 'sqft')
+  const formatAreaWithUnit = (property) => {
+    const area = getPropertyValue(property, 'area', '0');
+    const unit = (getPropertyValue(property, 'area_unit', 'sqft') || 'sqft').toLowerCase();
+    return unit === 'cent' ? `${area} cent` : `${area} sq.ft`;
+  };
+
   const getPropertyArray = (obj, path) => {
     if (!obj || typeof obj !== 'object') return [];
     const keys = path.split('.');
@@ -351,7 +358,7 @@ function PropertyList() {
                           </div>
                           <div className="flex items-center gap-1">
                             <FaRulerCombined className="text-gray-400" />
-                            <span className="text-sm text-gray-600">{getPropertyValue(property, 'area', '0')} sq.ft</span>
+                            <span className="text-sm text-gray-600">{formatAreaWithUnit(property)}</span>
                           </div>
                         </div>
                       </td>
@@ -485,7 +492,7 @@ function PropertyList() {
                         <div className="flex items-center gap-2 text-xs">
                           <span className="flex items-center gap-1"><FaBed className="text-gray-400" />{getPropertyValue(property, 'bedrooms', '0')}</span>
                           <span className="flex items-center gap-1"><FaBath className="text-gray-400" />{getPropertyValue(property, 'bathrooms', '0')}</span>
-                          <span className="flex items-center gap-1"><FaRulerCombined className="text-gray-400" />{getPropertyValue(property, 'area', '0')}</span>
+                          <span className="flex items-center gap-1"><FaRulerCombined className="text-gray-400" />{formatAreaWithUnit(property)}</span>
                         </div>
                       </div>
                       
