@@ -204,6 +204,11 @@ const AddProperty = () => {
       if (!formData.state || !formData.district || !formData.city) {
         throw new Error('Please select state, district, and city');
       }
+      const lat = formData.latitude != null && String(formData.latitude).trim() !== '' ? parseFloat(formData.latitude) : NaN;
+      const lng = formData.longitude != null && String(formData.longitude).trim() !== '' ? parseFloat(formData.longitude) : NaN;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        throw new Error('Latitude and longitude are required and must be valid numbers');
+      }
 
       const formDataToSend = new FormData();
       
@@ -225,6 +230,13 @@ const AddProperty = () => {
           }
         }
       });
+
+      // Set area_unit: 'cent' for Land for Sale, 'sqft' for other property types
+      const selectedPropertyType = propertyTypes.find(
+        type => type.id.toString() === formData.property_type
+      );
+      const isLandForSale = selectedPropertyType?.name?.toLowerCase().includes('land for sale');
+      formDataToSend.append('area_unit', isLandForSale ? 'cent' : 'sqft');
 
       // Filter out empty nearby places and format as single string
       const validNearbyPlaces = nearbyPlaces.filter(place => 
@@ -264,6 +276,17 @@ const AddProperty = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePriceChange = (e) => {
+    const value = e.target.value;
+    // Allow only numbers (digits and at most one decimal point); backspace gives shorter string
+    const sanitized = value.replace(/[^\d.]/g, '');
+    const parts = sanitized.split('.');
+    const numericOnly = parts.length > 2
+      ? parts[0] + '.' + parts.slice(1).join('')
+      : sanitized;
+    setFormData(prev => ({ ...prev, price: numericOnly }));
   };
 
   const handleInputChange = (e) => {
@@ -469,6 +492,37 @@ const AddProperty = () => {
               </select>
             </div>
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+            <div>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                Latitude <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="latitude"
+                value={formData.latitude}
+                onChange={handleInputChange}
+                required
+                className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                placeholder="e.g. 10.8505"
+              />
+            </div>
+            <div>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                Longitude <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="longitude"
+                value={formData.longitude}
+                onChange={handleInputChange}
+                required
+                className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                placeholder="e.g. 76.2711"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Property Details */}
@@ -492,10 +546,12 @@ const AddProperty = () => {
               <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Price</label>
               <input
                 type="text"
+                inputMode="numeric"
                 name="price"
                 value={formData.price}
-                onChange={handleInputChange}
+                onChange={handlePriceChange}
                 className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                placeholder="e.g. 2500000"
                 required
               />
             </div>
