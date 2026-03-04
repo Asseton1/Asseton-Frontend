@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import {
   FaBed,
   FaBath,
@@ -115,7 +115,7 @@ const PropertyDetails = () => {
     }
   };
 
-  const toggleFavorite = () => {
+  const _toggleFavorite = () => {
     setIsFavorite(!isFavorite);
   };
 
@@ -175,16 +175,12 @@ const PropertyDetails = () => {
     return propertyType === 'land' || propertyType.includes('land');
   };
 
-  // Helper function to format area with correct unit
+  // Helper function to format area with correct unit (uses API area_unit: 'cent' or 'sqft')
   const formatAreaWithUnit = (property) => {
     const area = getPropertyValue(property, 'area', '');
     if (!area || area === '' || area === '0') return null;
-    
-    if (isLandProperty(property)) {
-      return `${area} cents`;
-    } else {
-      return `${area} sq.ft.`;
-    }
+    const unit = (getPropertyValue(property, 'area_unit', 'sqft') || 'sqft').toLowerCase();
+    return unit === 'cent' ? `${area} cent` : `${area} sq.ft.`;
   };
 
   const getPropertyArray = (property, key, defaultValue = []) => {
@@ -390,7 +386,7 @@ const PropertyDetails = () => {
                 {/* Tab Content - Premium Styling */}
                 <div className="p-8">
                   {activeTab === 'overview' && (
-                    <motion.div
+                    <Motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.3 }}
@@ -444,11 +440,11 @@ const PropertyDetails = () => {
                           </div>
                         </div>
                       </div>
-                    </motion.div>
+                    </Motion.div>
                   )}
                   
                   {activeTab === 'features' && (
-                    <motion.div
+                    <Motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.3, staggerChildren: 0.1 }}
@@ -462,7 +458,7 @@ const PropertyDetails = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                         {getPropertyArray(property, 'feature_details').length > 0 ? (
                           getPropertyArray(property, 'feature_details').map((feature, index) => (
-                            <motion.div 
+                            <Motion.div 
                               key={feature.id}
                               initial={{ y: 20, opacity: 0 }}
                               animate={{ y: 0, opacity: 1 }}
@@ -475,7 +471,7 @@ const PropertyDetails = () => {
                                 </div>
                                 <span className="text-gray-700 font-medium">{feature.name}</span>
                               </div>
-                            </motion.div>
+                            </Motion.div>
                           ))
                         ) : (
                           <div className="col-span-3 text-center py-8">
@@ -483,11 +479,11 @@ const PropertyDetails = () => {
                           </div>
                         )}
                       </div>
-                    </motion.div>
+                    </Motion.div>
                   )}
                   
                   {activeTab === 'location' && (
-                    <motion.div
+                    <Motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.3 }}
@@ -539,7 +535,7 @@ const PropertyDetails = () => {
                                 const distance = typeof place === 'object' ? place.distance : null;
                                 
                                 return (
-                                  <motion.div 
+                                  <Motion.div 
                                     key={index}
                                     initial={{ y: 20, opacity: 0 }}
                                     animate={{ y: 0, opacity: 1 }}
@@ -553,7 +549,7 @@ const PropertyDetails = () => {
                                     {distance && (
                                       <div className="text-sm text-gray-500 mt-1">{distance}</div>
                                     )}
-                                  </motion.div>
+                                  </Motion.div>
                                 );
                               });
                             } catch (error) {
@@ -571,11 +567,11 @@ const PropertyDetails = () => {
                           </div>
                         )}
                       </div>
-                    </motion.div>
+                    </Motion.div>
                   )}
                   
                   {activeTab === 'video' && (
-                    <motion.div
+                    <Motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.3 }}
@@ -674,7 +670,7 @@ const PropertyDetails = () => {
                           </div>
                         </div>
                       )}
-                    </motion.div>
+                    </Motion.div>
                   )}
                 </div>
               </div>
@@ -686,13 +682,13 @@ const PropertyDetails = () => {
       
       {/* Contact Form Modal */}
       {showContactForm && (
-        <motion.div 
+        <Motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={() => setShowContactForm(false)}
         >
-          <motion.div 
+          <Motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
@@ -804,8 +800,8 @@ const PropertyDetails = () => {
                 </div>
               </div>
             </form>
-          </motion.div>
-        </motion.div>
+          </Motion.div>
+        </Motion.div>
       )}
     </div>
   );
