@@ -23,7 +23,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import Header from '../shared/Header';
 import Footer from '../shared/Footer';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { propertyAPI } from '../../Services/api';
 
 // Add Fuse.js for fuzzy search
@@ -81,8 +81,8 @@ const PropertyListing = () => {
   const areaMaxParam = searchParams.get('area_max');
   const searchSqft = searchParams.get('sqft') || 'Square Feet';
   const searchCents = searchParams.get('cents') || 'Any';
-  const searchLat = searchParams.get('lat') || '';
-  const searchLng = searchParams.get('lng') || '';
+  const _searchLat = searchParams.get('latitude') || searchParams.get('lat') || '';
+  const _searchLng = searchParams.get('longitude') || searchParams.get('lng') || '';
 
   // Parse price range from the price string
   const getPriceRangeFromString = (priceStr) => {
@@ -118,20 +118,20 @@ const PropertyListing = () => {
   // Parse cents range from the banner
   const getCentsRangeFromString = (centsStr) => {
     const centsRanges = {
-      'Any Cents': [0, 10000],
+      'Any Cents': [0, 100000],
       '0-5': [0, 5],
       '5-10': [5, 10],
       '10-20': [10, 20],
       '20-50': [20, 50],
       '50-100': [50, 100],
-      '100+': [100, 10000]
+      '100+': [100, 100000]
     };
     return centsRanges[centsStr] || centsRanges['Any Cents'];
   };
 
   // Initialize state with URL parameters
   const [viewMode, setViewMode] = useState('list');
-  const [favorites, setFavorites] = useState({});
+  const [_favorites, setFavorites] = useState({});
   const [activeFilter, setActiveFilter] = useState(() => {
     // Priority: category parameter from dropdown > propertyType parameter
     let initialFilter;
@@ -161,15 +161,22 @@ const PropertyListing = () => {
   }, [searchCategory, searchPropertyType]);
 
   const [priceRange, setPriceRange] = useState(() => searchPriceRange || [0, 1000000000]);
+  // Debounced price range for API/URL: updates after user stops moving the slider to avoid many API calls
+  const [debouncedPriceRange, setDebouncedPriceRange] = useState(() => searchPriceRange || [0, 1000000000]);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedPriceRange(priceRange), 400);
+    return () => clearTimeout(t);
+  }, [priceRange]);
   const [searchQuery, setSearchQuery] = useState(searchLocation);
   const [pendingSearch, setPendingSearch] = useState(searchLocation);
   const [showFilters, setShowFilters] = useState(false);
   const [sortOption, setSortOption] = useState('newest');
-  const [isLoading, setIsLoading] = useState(false);
+  const [_isLoading, setIsLoading] = useState(false);
   const [ownershipFilter, setOwnershipFilter] = useState('all');
   const [listingTypeFilter, setListingTypeFilter] = useState(searchType);
-  const [distanceRange, setDistanceRange] = useState(25);
-  const [userLocation, setUserLocation] = useState(searchLat && searchLng ? { lat: parseFloat(searchLat), lng: parseFloat(searchLng) } : null);
+  const [_distanceRange, setDistanceRange] = useState(25);
+  // Start with no location-based filtering; userLocation is only set when user explicitly selects/uses location
+  const [userLocation, setUserLocation] = useState(null);
   const [expandedFilter, setExpandedFilter] = useState(null);
   const [bedroomsFilter, setBedroomsFilter] = useState(searchBedrooms);
   const [bathroomsFilter, setBathroomsFilter] = useState(searchBathrooms);
@@ -181,9 +188,13 @@ const PropertyListing = () => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState(null);
   const [squareFeetRange, setSquareFeetRange] = useState(() => {
-    if (areaUnitParam === 'sqft' && areaMaxParam) {
-      const parsedMax = parseInt(areaMaxParam, 10);
-      return [0, Number.isNaN(parsedMax) ? 100000 : parsedMax];
+    if (areaUnitParam === 'sqft' && (areaMinParam || areaMaxParam)) {
+      const parsedMin = areaMinParam ? parseInt(areaMinParam, 10) : 0;
+      const parsedMax = areaMaxParam ? parseInt(areaMaxParam, 10) : 100000;
+      return [
+        Number.isNaN(parsedMin) ? 0 : Math.max(0, parsedMin),
+        Number.isNaN(parsedMax) ? 100000 : Math.min(100000, parsedMax)
+      ];
     }
     if (searchSqft !== 'Square Feet') {
       return getSquareFeetRangeFromString(searchSqft);
@@ -191,15 +202,19 @@ const PropertyListing = () => {
     return [0, 100000];
   });
   const [centsRange, setCentsRange] = useState(() => {
-    if (areaUnitParam === 'cent' && areaMinParam) {
-      const parsedMin = parseInt(areaMinParam, 10);
-      return [Number.isNaN(parsedMin) ? 0 : parsedMin, 1000];
+    if (areaUnitParam === 'cent' && (areaMinParam || areaMaxParam)) {
+      const parsedMin = areaMinParam ? parseInt(areaMinParam, 10) : 0;
+      const parsedMax = areaMaxParam ? parseInt(areaMaxParam, 10) : 100000;
+      return [
+        Number.isNaN(parsedMin) ? 0 : Math.max(0, parsedMin),
+        Number.isNaN(parsedMax) ? 100000 : Math.min(100000, parsedMax)
+      ];
     }
     if (searchCents !== 'Any') {
       const [minValue, maxValue] = getCentsRangeFromString(searchCents);
-      return [minValue, Math.min(maxValue, 1000)];
+      return [minValue, Math.min(maxValue, 100000)];
     }
-    return [0, 1000];
+    return [0, 100000];
   });
 
   const applyPriceRangeState = useCallback((min, max) => {
@@ -265,8 +280,8 @@ const PropertyListing = () => {
   })();
   const [itemsPerPage, setItemsPerPage] = useState(initialPageSize);
   const [totalCount, setTotalCount] = useState(0);
-  const [hasNextPage, setHasNextPage] = useState(false);
-  const [hasPreviousPage, setHasPreviousPage] = useState(false);
+  const [_hasNextPage, setHasNextPage] = useState(false);
+  const [_hasPreviousPage, setHasPreviousPage] = useState(false);
   const [isApiPaginated, setIsApiPaginated] = useState(false);
 const [isPageTransitioning, setIsPageTransitioning] = useState(false);
 const previousFiltersSignatureRef = useRef(null);
@@ -299,7 +314,7 @@ const shouldScrollToTopRef = useRef(false);
   }, [propertyTypes, propertyTypesLoading]);
 
   // Update the locations array with Kerala locations
-  const locations = [
+  const _locations = [
     'Thodupuzha, Idukki',
     'Pala, Kottayam',
     'Erattupetta, Kottayam',
@@ -312,7 +327,7 @@ const shouldScrollToTopRef = useRef(false);
   const [suggestedLocations, setSuggestedLocations] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const toggleFavorite = (id) => {
+  const _toggleFavorite = (id) => {
     setFavorites((prev) => ({
       ...prev,
       [id]: !prev[id],
@@ -333,7 +348,7 @@ const shouldScrollToTopRef = useRef(false);
   };
 
   // Add this function to handle amenities selection
-  const toggleAmenity = (amenity) => {
+  const _toggleAmenity = (amenity) => {
     setAmenitiesFilter(prev => 
       prev.includes(amenity) 
         ? prev.filter(a => a !== amenity) 
@@ -356,7 +371,7 @@ const shouldScrollToTopRef = useRef(false);
   };
 
   // Function to handle filter changes and update URL
-  const handleFilterChange = (filterType, value) => {
+  const _handleFilterChange = (filterType, value) => {
     const currentParams = new URLSearchParams(location.search);
     
     switch (filterType) {
@@ -394,13 +409,13 @@ const shouldScrollToTopRef = useRef(false);
   const [properties, setProperties] = useState([]);
   
   // Helper function to get property type ID from name
-  const getPropertyTypeId = (propertyTypeName) => {
+  const getPropertyTypeId = useCallback((propertyTypeName) => {
     if (!propertyTypeName || propertyTypeName === 'all') return null;
     const propertyType = propertyTypes.find(
       pt => pt.name.toLowerCase().trim() === propertyTypeName.toLowerCase().trim()
     );
     return propertyType?.id || null;
-  };
+  }, [propertyTypes]);
 
   // Build query parameters from filters
   const buildQueryParams = useCallback(() => {
@@ -410,13 +425,13 @@ const shouldScrollToTopRef = useRef(false);
     params.page = currentPage;
     params.page_size = itemsPerPage;
     
-    // Price filters
-    if (!(priceRange[0] === 0 && priceRange[1] === 1000000000)) {
-      if (priceRange[0] > 0) {
-        params.price_min = priceRange[0];
+    // Price filters (use debounced value so slider doesn't trigger many API calls)
+    if (!(debouncedPriceRange[0] === 0 && debouncedPriceRange[1] === 1000000000)) {
+      if (debouncedPriceRange[0] > 0) {
+        params.price_min = debouncedPriceRange[0];
       }
-      if (priceRange[1] < 1000000000) {
-        params.price_max = priceRange[1];
+      if (debouncedPriceRange[1] < 1000000000) {
+        params.price_max = debouncedPriceRange[1];
       }
     }
     
@@ -457,21 +472,29 @@ const shouldScrollToTopRef = useRef(false);
       params.ownership = ownershipFilter;
     }
     
-    // Area filters - prioritize built-up area (sqft) over land area (cent)
-    const isSquareFeetActive = squareFeetRange[1] > 0 && squareFeetRange[1] < 100000;
-    const isCentsActive = centsRange[0] > 0;
+    // Area filters - prioritize built-up area (sqft) over land area (cent); send area_min and area_max
+    const isSquareFeetActive = squareFeetRange[0] > 0 || (squareFeetRange[1] > 0 && squareFeetRange[1] < 100000);
+    const isCentsActive = centsRange[0] > 0 || centsRange[1] < 100000;
     if (isSquareFeetActive) {
-      params.area_max = squareFeetRange[1];
       params.area_unit = 'sqft';
+      params.area_min = squareFeetRange[0];
+      params.area_max = squareFeetRange[1];
     } else if (isCentsActive) {
-      params.area_min = centsRange[0];
       params.area_unit = 'cent';
+      params.area_min = centsRange[0];
+      params.area_max = centsRange[1];
     }
     
     // Location search
     const trimmedSearch = searchQuery?.trim();
     if (trimmedSearch) {
       params.search = trimmedSearch;
+    }
+    
+    // Latitude/longitude when user selects a location (for distance/nearby filtering)
+    if (userLocation && typeof userLocation.lat === 'number' && typeof userLocation.lng === 'number') {
+      params.latitude = userLocation.lat;
+      params.longitude = userLocation.lng;
     }
     
     // Property for (rent/sell) - map 'buy' to 'sell'
@@ -487,7 +510,7 @@ const shouldScrollToTopRef = useRef(false);
   }, [
     currentPage,
     itemsPerPage,
-    priceRange,
+    debouncedPriceRange,
     activeFilter,
     bedroomsFilter,
     bathroomsFilter,
@@ -496,7 +519,8 @@ const shouldScrollToTopRef = useRef(false);
     centsRange,
     searchQuery,
     listingTypeFilter,
-    propertyTypes
+    userLocation,
+    getPropertyTypeId
   ]);
 
   const baseFilterParams = useMemo(() => {
@@ -635,7 +659,7 @@ const shouldScrollToTopRef = useRef(false);
   }, []);
 
   // Create a function to normalize text for comparison
-  const normalizeText = (text) => {
+  const _normalizeText = (text) => {
     return text.toLowerCase().replace(/\s+/g, ' ').trim();
   };
 
@@ -691,56 +715,69 @@ const shouldScrollToTopRef = useRef(false);
       .join(' ');
   };
 
-  // Function to get unique locations from properties
+  // Function to get unique locations from properties (with latitude/longitude for each)
   const getUniqueLocations = (properties) => {
-    const locations = new Set();
+    const seen = new Set();
+    const list = [];
     properties.forEach(property => {
-      if (property.location?.city) {
-        locations.add(`${capitalizeFirstLetter(property.location.city)}, ${capitalizeFirstLetter(property.location.district)}, ${capitalizeFirstLetter(property.location.state)}`);
-      }
+      if (!property.location?.city) return;
+      const lat = property.latitude != null ? parseFloat(property.latitude) : null;
+      const lng = property.longitude != null ? parseFloat(property.longitude) : null;
+      if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) return;
+      const displayText = `${capitalizeFirstLetter(property.location.city)}, ${capitalizeFirstLetter(property.location.district || '')}, ${capitalizeFirstLetter(property.location.state || '')}`.replace(/,\s*,/g, ',').replace(/,?\s*$/, '');
+      if (seen.has(displayText)) return;
+      seen.add(displayText);
+      list.push({ displayText, latitude: lat, longitude: lng });
     });
-    return Array.from(locations);
+    return list;
   };
 
-  // Initialize Fuse instance for fuzzy search
-  const initializeFuseSearch = (locations) => {
-    return new Fuse(locations, {
+  // Initialize Fuse instance for fuzzy search on location objects
+  const initializeFuseSearch = (locationObjs) => {
+    return new Fuse(locationObjs, {
       includeScore: true,
       threshold: 0.4,
-      keys: ['location'],
+      keys: ['displayText'],
       distance: 200
     });
   };
 
-  // Function to handle location search and suggestions
+  // Function to handle location search and suggestions (from existing properties)
   const handleLocationSearch = (searchValue) => {
     setPendingSearch(searchValue);
     
     const trimmedValue = searchValue.trim();
+    const uniqueLocations = getUniqueLocations(properties);
+    
     if (trimmedValue.length < 2) {
-      setSuggestedLocations([]);
-      setShowSuggestions(false);
+      setSuggestedLocations(uniqueLocations);
+      setShowSuggestions(uniqueLocations.length > 0);
       return;
     }
 
-    const uniqueLocations = getUniqueLocations(properties);
-    const fuse = initializeFuseSearch(uniqueLocations.map(loc => ({ location: loc })));
+    const fuse = initializeFuseSearch(uniqueLocations);
     const results = fuse.search(trimmedValue);
-    
-    // Get top 5 suggestions
-    const suggestions = results
-      .slice(0, 5)
-      .map(result => result.item.location);
-    
+    const suggestions = results.slice(0, 8).map(r => r.item);
     setSuggestedLocations(suggestions);
     setShowSuggestions(true);
   };
 
-  // Function to handle suggestion selection
-  const handleSuggestionSelect = (suggestion) => {
-    setPendingSearch(suggestion);
+  // Function to handle suggestion selection — pass only latitude/longitude (no search param). Search is only sent when user types and clicks Search.
+  const handleSuggestionSelect = (locationItem) => {
+    const displayText = typeof locationItem === 'string' ? locationItem : locationItem.displayText;
+    setPendingSearch(displayText); // Show selected location in input for display only
+    setSearchQuery(''); // Do not send search param when selecting from dropdown; only lat/lng are sent
     setShowSuggestions(false);
     setSuggestedLocations([]);
+    if (typeof locationItem === 'object' && locationItem != null && typeof locationItem.latitude === 'number' && typeof locationItem.longitude === 'number') {
+      setUserLocation({ lat: locationItem.latitude, lng: locationItem.longitude });
+    } else if (typeof locationItem === 'object' && locationItem != null && locationItem.latitude != null && locationItem.longitude != null) {
+      setUserLocation({
+        lat: parseFloat(locationItem.latitude),
+        lng: parseFloat(locationItem.longitude)
+      });
+    }
+    setShowFilters(false); // Close Advanced Filters so results are visible
   };
 
   const applySearch = useCallback(() => {
@@ -752,7 +789,7 @@ const shouldScrollToTopRef = useRef(false);
   }, [pendingSearch]);
 
   // Add helper function to format area numbers
-  const formatAreaNumber = (number) => {
+  const _formatAreaNumber = (number) => {
     if (number >= 10000) {
       return `${(number / 1000).toFixed(1)}K`;
     }
@@ -857,21 +894,9 @@ const shouldScrollToTopRef = useRef(false);
     amenitiesFilter
   ]);
 
-  // Add this to your useEffect or create a new one
-  useEffect(() => {
-    // Get user's location if they allow it
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {}
-      );
-    }
-  }, []);
+  // Note: we no longer auto-fetch geolocation on mount.
+  // Location is only set when the user explicitly selects a location
+  // from the dropdown or clicks "Use my current location".
 
   // Parse URL query parameters
   const parseQueryParams = useCallback(() => {
@@ -892,8 +917,10 @@ const shouldScrollToTopRef = useRef(false);
       const areaMax = searchParams.get('area_max') || null;
       const sqft = searchParams.get('sqft') || null;
       const cents = searchParams.get('cents') || null;
-      const lat = searchParams.get('lat') || null;
-      const lng = searchParams.get('lng') || null;
+      // We intentionally ignore any latitude/longitude from the URL on load
+      // so that refreshing or opening the page does not auto-apply location filters.
+      const lat = null;
+      const lng = null;
       const pageSizeParam = searchParams.get('page_size') || null;
       const bedroomsMinParam = searchParams.get('bedrooms_min') || null;
       const bathroomsMinParam = searchParams.get('bathrooms_min') || null;
@@ -952,17 +979,25 @@ const shouldScrollToTopRef = useRef(false);
         applyPriceRangeState(0, 1000000000);
       }
       
-      // Set area filters
-      if (areaUnit === 'sqft' && areaMax) {
-        const parsedAreaMax = parseInt(areaMax, 10);
-        if (!Number.isNaN(parsedAreaMax)) {
-          applySquareFeetRangeState(0, parsedAreaMax);
-          applyCentsRangeState(0, 1000);
+      // Set area filters (area_min and area_max)
+      if (areaUnit === 'sqft' && (areaMin || areaMax)) {
+        const parsedMin = areaMin ? parseInt(areaMin, 10) : 0;
+        const parsedMax = areaMax ? parseInt(areaMax, 10) : 100000;
+        if (!Number.isNaN(parsedMin) || !Number.isNaN(parsedMax)) {
+          applySquareFeetRangeState(
+            Number.isNaN(parsedMin) ? 0 : Math.max(0, parsedMin),
+            Number.isNaN(parsedMax) ? 100000 : Math.min(100000, parsedMax)
+          );
+          applyCentsRangeState(0, 100000);
         }
-      } else if (areaUnit === 'cent' && areaMin) {
-        const parsedAreaMin = parseInt(areaMin, 10);
-        if (!Number.isNaN(parsedAreaMin)) {
-          applyCentsRangeState(parsedAreaMin, 1000);
+      } else if (areaUnit === 'cent' && (areaMin || areaMax)) {
+        const parsedMin = areaMin ? parseInt(areaMin, 10) : 0;
+        const parsedMax = areaMax ? parseInt(areaMax, 10) : 100000;
+        if (!Number.isNaN(parsedMin) || !Number.isNaN(parsedMax)) {
+          applyCentsRangeState(
+            Number.isNaN(parsedMin) ? 0 : Math.max(0, parsedMin),
+            Number.isNaN(parsedMax) ? 100000 : Math.min(100000, parsedMax)
+          );
           applySquareFeetRangeState(0, 100000);
         }
       } else {
@@ -974,9 +1009,9 @@ const shouldScrollToTopRef = useRef(false);
         }
         if (cents && cents !== 'Any') {
           const [minValue, maxValue] = getCentsRangeFromString(cents);
-          applyCentsRangeState(minValue, Math.min(maxValue, 1000));
+          applyCentsRangeState(minValue, Math.min(maxValue, 100000));
         } else {
-          applyCentsRangeState(0, 1000);
+          applyCentsRangeState(0, 100000);
         }
       }
       
@@ -1043,8 +1078,42 @@ const shouldScrollToTopRef = useRef(false);
     }
   }, [location.search, applyPriceRangeState, applySquareFeetRangeState, applyCentsRangeState]);
   
-  // Apply URL parameters when component mounts or URL changes
+  // On mount (refresh or open property-listing): reset all filters and clear URL so listing always loads unfiltered
+  const skipNextParseRef = useRef(true); // Skip parsing URL on first run so defaults stick
+  const justAppliedDefaultsRef = useRef(false); // So sync effect doesn't re-push params before state flushes
+  const hasResetOnMountRef = useRef(false);
   useEffect(() => {
+    if (location.pathname !== '/property-listing' || hasResetOnMountRef.current) return;
+    hasResetOnMountRef.current = true;
+    justAppliedDefaultsRef.current = true;
+    setActiveFilter('all');
+    setPriceRange([0, 1000000000]);
+    setDebouncedPriceRange([0, 1000000000]);
+    setBedroomsFilter('any');
+    setBathroomsFilter('any');
+    setOwnershipFilter('all');
+    setListingTypeFilter('all');
+    setSearchQuery('');
+    setPendingSearch('');
+    setUserLocation(null);
+    setSquareFeetRange([0, 100000]);
+    setCentsRange([0, 100000]);
+    setSuggestedLocations([]);
+    setShowSuggestions(false);
+    suppressPageSyncRef.current = true;
+    setCurrentPage(1);
+    applyPriceRangeState(0, 1000000000);
+    applySquareFeetRangeState(0, 100000);
+    applyCentsRangeState(0, 100000);
+    navigate(location.pathname, { replace: true });
+  }, [location.pathname, applyPriceRangeState, applySquareFeetRangeState, applyCentsRangeState, navigate]);
+
+  // Apply URL parameters when URL changes (skip first run so default-no-filter state is not overwritten)
+  useEffect(() => {
+    if (skipNextParseRef.current) {
+      skipNextParseRef.current = false;
+      return;
+    }
     parseQueryParams();
   }, [location.search, parseQueryParams]);
 
@@ -1062,25 +1131,31 @@ const shouldScrollToTopRef = useRef(false);
       const normalizedBathrooms = bathroomsFilter === '4+' ? '4' : bathroomsFilter;
       params.set('bathrooms_min', normalizedBathrooms);
     }
-    if (!(priceRange[0] === 0 && priceRange[1] === 1000000000)) {
-      if (priceRange[0] > 0) {
-        params.set('price_min', priceRange[0].toString());
+    if (!(debouncedPriceRange[0] === 0 && debouncedPriceRange[1] === 1000000000)) {
+      if (debouncedPriceRange[0] > 0) {
+        params.set('price_min', debouncedPriceRange[0].toString());
       }
-      if (priceRange[1] < 1000000000) {
-        params.set('price_max', priceRange[1].toString());
+      if (debouncedPriceRange[1] < 1000000000) {
+        params.set('price_max', debouncedPriceRange[1].toString());
       }
     }
-    const isSquareFeetActive = squareFeetRange[1] > 0 && squareFeetRange[1] < 100000;
-    const isCentsActive = centsRange[0] > 0;
+    const isSquareFeetActive = squareFeetRange[0] > 0 || (squareFeetRange[1] > 0 && squareFeetRange[1] < 100000);
+    const isCentsActive = centsRange[0] > 0 || centsRange[1] < 100000;
     if (isSquareFeetActive) {
       params.set('area_unit', 'sqft');
+      params.set('area_min', squareFeetRange[0].toString());
       params.set('area_max', squareFeetRange[1].toString());
     } else if (isCentsActive) {
       params.set('area_unit', 'cent');
       params.set('area_min', centsRange[0].toString());
+      params.set('area_max', centsRange[1].toString());
     }
     if (ownershipFilter && ownershipFilter !== 'all') params.set('ownership', ownershipFilter);
     if (searchQuery && searchQuery.trim()) params.set('search', searchQuery.trim());
+    if (userLocation && typeof userLocation.lat === 'number' && typeof userLocation.lng === 'number') {
+      params.set('latitude', userLocation.lat.toString());
+      params.set('longitude', userLocation.lng.toString());
+    }
     if (itemsPerPage) params.set('page_size', itemsPerPage.toString());
     if (currentPage && currentPage !== 1) params.set('page', currentPage);
     return params.toString();
@@ -1089,23 +1164,29 @@ const shouldScrollToTopRef = useRef(false);
     activeFilter,
     bedroomsFilter,
     bathroomsFilter,
-    priceRange,
+    debouncedPriceRange,
     squareFeetRange,
     centsRange,
     ownershipFilter,
     searchQuery,
+    userLocation,
     itemsPerPage,
     currentPage
   ]);
 
-  // Update URL when filters change
+  // Update URL when filters change (skip pushing state to URL right after we applied defaults, so lat/lng don't reappear)
   useEffect(() => {
+    if (justAppliedDefaultsRef.current) {
+      justAppliedDefaultsRef.current = false;
+      navigate(location.pathname, { replace: true });
+      return;
+    }
     const currentSearch = location.search.startsWith('?') ? location.search.slice(1) : location.search;
     if (filterQueryString !== currentSearch) {
       const queryString = filterQueryString ? `?${filterQueryString}` : '';
       navigate(`${location.pathname}${queryString}`, { replace: true });
     }
-  }, [filterQueryString, navigate, location.pathname]);
+  }, [filterQueryString, navigate, location.pathname, location.search]);
 
   // Show filters by default if any filter is set
   useEffect(() => {
@@ -1114,8 +1195,8 @@ const shouldScrollToTopRef = useRef(false);
       searchBedrooms !== 'any' ||
       priceMinParam ||
       priceMaxParam ||
-      (areaUnitParam === 'sqft' && areaMaxParam) ||
-      (areaUnitParam === 'cent' && areaMinParam) ||
+      (areaUnitParam === 'sqft' && (areaMinParam || areaMaxParam)) ||
+      (areaUnitParam === 'cent' && (areaMinParam || areaMaxParam)) ||
       searchSqft !== 'Square Feet'
     ) {
       setShowFilters(true);
@@ -1138,6 +1219,7 @@ const shouldScrollToTopRef = useRef(false);
     // Force reset all filters to their default values
     setActiveFilter('all');
     setPriceRange([0, 1000000000]); // Set a very wide range to include all properties
+    setDebouncedPriceRange([0, 1000000000]);
     setBedroomsFilter('any');
     setBathroomsFilter('any');
     setDistanceRange(25);
@@ -1149,7 +1231,7 @@ const shouldScrollToTopRef = useRef(false);
     setPendingSearch('');
     setSortOption('newest');
     setSquareFeetRange([0, 100000]); // Set a very wide range
-    setCentsRange([0, 1000]); // Set a very wide range
+    setCentsRange([0, 100000]); // Set a very wide range
     suppressPageSyncRef.current = true;
     setCurrentPage(1);
     setUserLocation(null); // Reset user location
@@ -1287,7 +1369,11 @@ const shouldScrollToTopRef = useRef(false);
           placeholder="Enter location"
           value={pendingSearch}
           onChange={(e) => handleLocationSearch(e.target.value)}
-          onFocus={() => setShowSuggestions(true)}
+          onFocus={() => {
+            const locations = getUniqueLocations(properties);
+            setSuggestedLocations(locations);
+            setShowSuggestions(locations.length > 0);
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
@@ -1321,24 +1407,27 @@ const shouldScrollToTopRef = useRef(false);
         </div>
       </div>
       
-      {/* Location Suggestions Dropdown */}
+      {/* Location Suggestions Dropdown - existing locations from properties (with lat/lng on select) */}
       {showSuggestions && suggestedLocations.length > 0 && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-          {suggestedLocations.map((suggestion, index) => (
-            <div
-              key={index}
-              className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-              onClick={() => handleSuggestionSelect(suggestion)}
-            >
-              <div className="flex items-center gap-3">
-                <FaMapMarkerAlt className="text-green-500 flex-shrink-0" />
-                <div>
-                  <div className="text-gray-700">{suggestion}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">Click to select this location</div>
+          {suggestedLocations.map((loc, index) => {
+            const displayText = typeof loc === 'string' ? loc : loc.displayText;
+            return (
+              <div
+                key={index}
+                className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                onClick={() => handleSuggestionSelect(loc)}
+              >
+                <div className="flex items-center gap-3">
+                  <FaMapMarkerAlt className="text-green-500 flex-shrink-0" />
+                  <div>
+                    <div className="text-gray-700">{displayText}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">Select to filter by this location</div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -1351,7 +1440,7 @@ const shouldScrollToTopRef = useRef(false);
 
   // Find the location filter section and update it
   const locationFilterSection = (
-    <motion.div layout className={getFilterCardClasses('location')}>
+    <Motion.div layout className={getFilterCardClasses('location')}>
       <div 
         className="flex justify-between items-center cursor-pointer mb-4"
         onClick={() => toggleFilterSection('location')}
@@ -1365,7 +1454,7 @@ const shouldScrollToTopRef = useRef(false);
       
       <AnimatePresence initial={false}>
         {expandedFilter === 'location' && (
-          <motion.div
+          <Motion.div
             key="location-content"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
@@ -1376,6 +1465,29 @@ const shouldScrollToTopRef = useRef(false);
             <div className="space-y-4">
               {/* Search Input */}
               {searchInputSection}
+
+              {/* Existing locations from API response - always visible when Location is expanded */}
+              {(() => {
+                const existingLocations = getUniqueLocations(properties);
+                if (existingLocations.length === 0) return null;
+                return (
+                  <div className="pt-2 border-t border-gray-100">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Existing locations</p>
+                    <div className="border border-gray-200 rounded-lg bg-white max-h-48 overflow-y-auto shadow-inner">
+                      {existingLocations.map((loc, index) => (
+                        <div
+                          key={index}
+                          className="px-3 py-2.5 hover:bg-green-50 cursor-pointer border-b border-gray-100 last:border-b-0 flex items-center gap-2"
+                          onClick={() => handleSuggestionSelect(loc)}
+                        >
+                          <FaMapMarkerAlt className="text-green-500 flex-shrink-0" />
+                          <span className="text-gray-700 text-sm">{loc.displayText}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Location Error Message */}
               {locationError && (
@@ -1436,14 +1548,14 @@ const shouldScrollToTopRef = useRef(false);
                 </div>
               )} */}
             </div>
-          </motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </Motion.div>
   );
 
   // Add areaFiltersSection after the price range filter in Column 2
-  const areaFiltersSection = (
+  const _areaFiltersSection = (
     <>
       {/* Square Feet Filter */}
       <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
@@ -1459,36 +1571,38 @@ const shouldScrollToTopRef = useRef(false);
         </div>
         
         {expandedFilter === 'squareFeet' && (
-          <div className="mt-4 px-2">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>{formatAreaNumber(squareFeetRange[0])} sq.ft</span>
-              <span>{formatAreaNumber(squareFeetRange[1])} sq.ft</span>
-            </div>
-            <div className="relative pt-1">
+          <div className="mt-4 px-2 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Area (min) sq.ft</label>
               <input
-                type="range"
+                type="number"
                 min="0"
-                max="10000"
+                max="100000"
                 step="100"
-                value={squareFeetRange[1]}
-                onChange={(e) => setSquareFeetRange([0, parseInt(e.target.value)])}
-                className="w-full h-2 bg-green-100 rounded-lg appearance-none cursor-pointer accent-green-600"
+                value={squareFeetRange[0]}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  const num = Number.isNaN(v) ? 0 : Math.max(0, Math.min(100000, v));
+                  setSquareFeetRange(prev => [num, Math.max(num, prev[1])]);
+                }}
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {['500', '1000', '2000', '3000', '5000', '10000'].map((size) => (
-                <button
-                  key={size}
-                  onClick={() => setSquareFeetRange([0, parseInt(size)])}
-                  className={`px-2 py-1.5 rounded-lg text-sm transition-all duration-300 ${
-                    squareFeetRange[1] === parseInt(size)
-                      ? 'bg-green-600 text-white font-medium shadow-md'
-                      : 'bg-white text-gray-700 border border-gray-200 hover:border-green-300'
-                  }`}
-                >
-                  {`< ${formatAreaNumber(parseInt(size))}`}
-                </button>
-              ))}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Area (max) sq.ft</label>
+              <input
+                type="number"
+                min="0"
+                max="100000"
+                step="100"
+                value={squareFeetRange[1]}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  const num = Number.isNaN(v) ? 100000 : Math.max(0, Math.min(100000, v));
+                  setSquareFeetRange(prev => [Math.min(prev[0], num), num]);
+                }}
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
             </div>
           </div>
         )}
@@ -1508,36 +1622,50 @@ const shouldScrollToTopRef = useRef(false);
         </div>
         
         {expandedFilter === 'cents' && (
-          <div className="mt-4 px-2">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>{centsRange[0]} cents</span>
-              <span>{centsRange[1] >= 1000 ? '1000+ cents' : `${centsRange[1]} cents`}</span>
-            </div>
-            <div className="relative pt-1">
+          <div className="mt-4 px-2 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Area (min) cents</label>
               <input
-                type="range"
+                type="number"
                 min="0"
-                max="1000"
-                step="10"
+                max="100000"
+                step="1"
                 value={centsRange[0]}
-                onChange={(e) => setCentsRange([parseInt(e.target.value), 1000])}
-                className="w-full h-2 bg-green-100 rounded-lg appearance-none cursor-pointer accent-green-600"
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === '') {
+                    setCentsRange(prev => [0, prev[1]]);
+                    return;
+                  }
+                  const v = parseInt(raw, 10);
+                  const num = Number.isNaN(v) ? 0 : Math.max(0, Math.min(100000, v));
+                  setCentsRange(prev => [num, Math.max(num, prev[1])]);
+                }}
+                onKeyDown={(e) => { if (e.key === 'Backspace') e.stopPropagation(); }}
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {['25', '50', '100', '500', '750', '1000'].map((size) => (
-                <button
-                  key={size}
-                  onClick={() => setCentsRange([parseInt(size), 1000])}
-                  className={`px-2 py-1.5 rounded-lg text-sm transition-all duration-300 ${
-                    centsRange[0] === parseInt(size)
-                      ? 'bg-green-600 text-white font-medium shadow-md'
-                      : 'bg-white text-gray-700 border border-gray-200 hover:border-green-300'
-                  }`}
-                >
-                  {size === '1000' ? '1000+' : `< ${size}`}
-                </button>
-              ))}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Area (max) cents</label>
+              <input
+                type="number"
+                min="0"
+                max="100000"
+                step="1"
+                value={centsRange[1]}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === '') {
+                    setCentsRange(prev => [prev[0], 100000]);
+                    return;
+                  }
+                  const v = parseInt(raw, 10);
+                  const num = Number.isNaN(v) ? 100000 : Math.max(0, Math.min(100000, v));
+                  setCentsRange(prev => [Math.min(prev[0], num), num]);
+                }}
+                onKeyDown={(e) => { if (e.key === 'Backspace') e.stopPropagation(); }}
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
             </div>
           </div>
         )}
@@ -1741,13 +1869,13 @@ const shouldScrollToTopRef = useRef(false);
         <div className="relative h-[50vh] bg-fixed bg-center bg-cover mb-8 overflow-hidden" 
              style={{backgroundImage: 'url(https://images.prismic.io/villaplus/Z-48L3dAxsiBwQXr_3840X1500.jpg)'}}>
           <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-black/60 to-black/30"></div>
-          <motion.div 
+          <Motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 1 }}
             className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-green-500/20 blur-3xl"
           />
-          <motion.div 
+          <Motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.6 }}
             transition={{ duration: 1.2, delay: 0.2 }}
@@ -1755,25 +1883,25 @@ const shouldScrollToTopRef = useRef(false);
           />
           <div className="container mx-auto container-padding h-full flex items-center">
             <div className="relative z-10 max-w-3xl">
-              <motion.h1 
+              <Motion.h1 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
                 className="heading-1 mb-4 text-white leading-tight text-left"
               >
                 Find Your Perfect Asset
-              </motion.h1>
-              <motion.p 
+              </Motion.h1>
+              <Motion.p 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
                 className="body-medium text-gray-200 mb-8 text-left"
               >
                 {getFilterDescription()}
-              </motion.p>
+              </Motion.p>
               
               {/* Search Bar */}
-              <motion.div 
+              <Motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
@@ -1827,7 +1955,7 @@ const shouldScrollToTopRef = useRef(false);
                     {showFilters ? 'Hide Filters' : 'Show Filters'}
                   </button>
                 </div>
-              </motion.div>
+              </Motion.div>
             </div>
           </div>
         </div>
@@ -1835,7 +1963,7 @@ const shouldScrollToTopRef = useRef(false);
         <div className="container mx-auto container-padding pb-12">
           {/* Filters Section - Premium Design */}
           {showFilters && (
-            <motion.div 
+            <Motion.div 
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
@@ -1856,7 +1984,7 @@ const shouldScrollToTopRef = useRef(false);
                 {locationFilterSection}
 
                 {/* Property Type Filter */}
-                <motion.div layout className={getFilterCardClasses('propertyType')}>
+                <Motion.div layout className={getFilterCardClasses('propertyType')}>
                   <div 
                     className="flex justify-between items-center cursor-pointer"
                     onClick={() => toggleFilterSection('propertyType')}
@@ -1870,7 +1998,7 @@ const shouldScrollToTopRef = useRef(false);
                   
                   <AnimatePresence initial={false}>
                     {expandedFilter === 'propertyType' && (
-                      <motion.div
+                      <Motion.div
                         key="propertyType-content"
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
@@ -1911,13 +2039,13 @@ const shouldScrollToTopRef = useRef(false);
                             </div>
                           ))}
                         </div>
-                      </motion.div>
+                      </Motion.div>
                     )}
                   </AnimatePresence>
-                </motion.div>
+                </Motion.div>
 
                 {/* Price Range Filter */}
-                <motion.div layout className={getFilterCardClasses('priceRange')}>
+                <Motion.div layout className={getFilterCardClasses('priceRange')}>
                   <div 
                     className="flex justify-between items-center cursor-pointer"
                     onClick={() => toggleFilterSection('priceRange')}
@@ -1931,7 +2059,7 @@ const shouldScrollToTopRef = useRef(false);
                   
                   <AnimatePresence initial={false}>
                     {expandedFilter === 'priceRange' && (
-                      <motion.div
+                      <Motion.div
                         key="priceRange-content"
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
@@ -1975,13 +2103,13 @@ const shouldScrollToTopRef = useRef(false);
                             ))}
                           </div>
                         </div>
-                      </motion.div>
+                      </Motion.div>
                     )}
                   </AnimatePresence>
-                </motion.div>
+                </Motion.div>
 
                 {/* Square Feet Filter */}
-                <motion.div layout className={getFilterCardClasses('squareFeet')}>
+                <Motion.div layout className={getFilterCardClasses('squareFeet')}>
                   <div 
                     className="flex justify-between items-center cursor-pointer"
                     onClick={() => toggleFilterSection('squareFeet')}
@@ -1995,7 +2123,7 @@ const shouldScrollToTopRef = useRef(false);
                   
                   <AnimatePresence initial={false}>
                     {expandedFilter === 'squareFeet' && (
-                      <motion.div
+                      <Motion.div
                         key="squareFeet-content"
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
@@ -2003,45 +2131,47 @@ const shouldScrollToTopRef = useRef(false);
                         transition={{ duration: 0.25, ease: 'easeInOut' }}
                         className="overflow-hidden"
                       >
-                        <div className="mt-4 px-2">
-                          <div className="flex justify-between text-sm text-gray-600 mb-2">
-                            <span>{formatAreaNumber(squareFeetRange[0])} sq.ft</span>
-                            <span>{formatAreaNumber(squareFeetRange[1])} sq.ft</span>
-                          </div>
-                          <div className="relative pt-1">
+                        <div className="mt-4 px-2 space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Area (min) sq.ft</label>
                             <input
-                              type="range"
+                              type="number"
                               min="0"
-                              max="10000"
+                              max="100000"
                               step="100"
-                              value={squareFeetRange[1]}
-                              onChange={(e) => setSquareFeetRange([0, parseInt(e.target.value)])}
-                              className="w-full h-2 bg-green-100 rounded-lg appearance-none cursor-pointer accent-green-600"
+                              value={squareFeetRange[0]}
+                              onChange={(e) => {
+                                const v = parseInt(e.target.value, 10);
+                                const num = Number.isNaN(v) ? 0 : Math.max(0, Math.min(100000, v));
+                                setSquareFeetRange(prev => [num, Math.max(num, prev[1])]);
+                              }}
+                              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             />
                           </div>
-                          <div className="mt-4 grid grid-cols-3 gap-2">
-                            {['500', '1000', '2000', '3000', '5000', '10000'].map((size) => (
-                              <button
-                                key={size}
-                                onClick={() => setSquareFeetRange([0, parseInt(size)])}
-                                className={`px-2 py-1.5 rounded-lg text-sm transition-all duration-300 ${
-                                  squareFeetRange[1] === parseInt(size)
-                                    ? 'bg-green-600 text-white font-medium shadow-md'
-                                    : 'bg-white text-gray-700 border border-gray-200 hover-border-green-300'
-                                }`}
-                              >
-                                {`< ${formatAreaNumber(parseInt(size))}`}
-                              </button>
-                            ))}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Area (max) sq.ft</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100000"
+                              step="100"
+                              value={squareFeetRange[1]}
+                              onChange={(e) => {
+                                const v = parseInt(e.target.value, 10);
+                                const num = Number.isNaN(v) ? 100000 : Math.max(0, Math.min(100000, v));
+                                setSquareFeetRange(prev => [Math.min(prev[0], num), num]);
+                              }}
+                              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            />
                           </div>
                         </div>
-                      </motion.div>
+                      </Motion.div>
                     )}
                   </AnimatePresence>
-                </motion.div>
+                </Motion.div>
 
                 {/* Cents Filter */}
-                <motion.div layout className={getFilterCardClasses('cents')}>
+                <Motion.div layout className={getFilterCardClasses('cents')}>
                   <div 
                     className="flex justify-between items-center cursor-pointer"
                     onClick={() => toggleFilterSection('cents')}
@@ -2055,7 +2185,7 @@ const shouldScrollToTopRef = useRef(false);
                   
                   <AnimatePresence initial={false}>
                     {expandedFilter === 'cents' && (
-                      <motion.div
+                      <Motion.div
                         key="cents-content"
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
@@ -2063,45 +2193,59 @@ const shouldScrollToTopRef = useRef(false);
                         transition={{ duration: 0.25, ease: 'easeInOut' }}
                         className="overflow-hidden"
                       >
-                        <div className="mt-4 px-2">
-                          <div className="flex justify-between text-sm text-gray-600 mb-2">
-                            <span>{centsRange[0]} cents</span>
-                            <span>{centsRange[1] >= 1000 ? '1000+ cents' : `${centsRange[1]} cents`}</span>
-                          </div>
-                          <div className="relative pt-1">
+                        <div className="mt-4 px-2 space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Area (min) cents</label>
                             <input
-                              type="range"
+                              type="number"
                               min="0"
-                              max="1000"
-                              step="10"
+                              max="100000"
+                              step="1"
                               value={centsRange[0]}
-                              onChange={(e) => setCentsRange([parseInt(e.target.value), 1000])}
-                              className="w-full h-2 bg-green-100 rounded-lg appearance-none cursor-pointer accent-green-600"
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                if (raw === '') {
+                                  setCentsRange(prev => [0, prev[1]]);
+                                  return;
+                                }
+                                const v = parseInt(raw, 10);
+                                const num = Number.isNaN(v) ? 0 : Math.max(0, Math.min(100000, v));
+                                setCentsRange(prev => [num, Math.max(num, prev[1])]);
+                              }}
+                              onKeyDown={(e) => { if (e.key === 'Backspace') e.stopPropagation(); }}
+                              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             />
                           </div>
-                          <div className="mt-4 grid grid-cols-3 gap-2">
-                            {['25', '50', '100', '500', '750', '1000'].map((size) => (
-                              <button
-                                key={size}
-                                onClick={() => setCentsRange([parseInt(size), 1000])}
-                                className={`px-2 py-1.5 rounded-lg text-sm transition-all duration-300 ${
-                                  centsRange[0] === parseInt(size)
-                                    ? 'bg-green-600 text-white font-medium shadow-md'
-                                    : 'bg-white text-gray-700 border border-gray-200 hover-border-green-300'
-                                }`}
-                              >
-                                {size === '1000' ? '1000+' : `< ${size}`}
-                              </button>
-                            ))}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Area (max) cents</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100000"
+                              step="1"
+                              value={centsRange[1]}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                if (raw === '') {
+                                  setCentsRange(prev => [prev[0], 100000]);
+                                  return;
+                                }
+                                const v = parseInt(raw, 10);
+                                const num = Number.isNaN(v) ? 100000 : Math.max(0, Math.min(100000, v));
+                                setCentsRange(prev => [Math.min(prev[0], num), num]);
+                              }}
+                              onKeyDown={(e) => { if (e.key === 'Backspace') e.stopPropagation(); }}
+                              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            />
                           </div>
                         </div>
-                      </motion.div>
+                      </Motion.div>
                     )}
                   </AnimatePresence>
-                </motion.div>
+                </Motion.div>
 
                 {/* Ownership Filter */}
-                <motion.div layout className={getFilterCardClasses('ownership')}>
+                <Motion.div layout className={getFilterCardClasses('ownership')}>
                   <div 
                     className="flex justify-between items-center cursor-pointer"
                     onClick={() => toggleFilterSection('ownership')}
@@ -2115,7 +2259,7 @@ const shouldScrollToTopRef = useRef(false);
                   
                   <AnimatePresence initial={false}>
                     {expandedFilter === 'ownership' && (
-                      <motion.div
+                      <Motion.div
                         key="ownership-content"
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
@@ -2155,13 +2299,13 @@ const shouldScrollToTopRef = useRef(false);
                             Management
                           </button>
                         </div>
-                      </motion.div>
+                      </Motion.div>
                     )}
                   </AnimatePresence>
-                </motion.div>
+                </Motion.div>
 
                 {/* Listing Type Filter */}
-                <motion.div layout className={getFilterCardClasses('listingType')}>
+                <Motion.div layout className={getFilterCardClasses('listingType')}>
                   <div 
                     className="flex justify-between items-center cursor-pointer"
                     onClick={() => toggleFilterSection('listingType')}
@@ -2175,7 +2319,7 @@ const shouldScrollToTopRef = useRef(false);
                   
                   <AnimatePresence initial={false}>
                     {expandedFilter === 'listingType' && (
-                      <motion.div
+                      <Motion.div
                         key="listingType-content"
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
@@ -2198,13 +2342,13 @@ const shouldScrollToTopRef = useRef(false);
                             </button>
                           ))}
                         </div>
-                      </motion.div>
+                      </Motion.div>
                     )}
                   </AnimatePresence>
-                </motion.div>
+                </Motion.div>
 
                 {/* Bedrooms Filter */}
-                <motion.div layout className={getFilterCardClasses('bedrooms')}>
+                <Motion.div layout className={getFilterCardClasses('bedrooms')}>
                   <div 
                     className="flex justify-between items-center cursor-pointer"
                     onClick={() => toggleFilterSection('bedrooms')}
@@ -2218,7 +2362,7 @@ const shouldScrollToTopRef = useRef(false);
                   
                   <AnimatePresence initial={false}>
                     {expandedFilter === 'bedrooms' && (
-                      <motion.div
+                      <Motion.div
                         key="bedrooms-content"
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
@@ -2241,13 +2385,13 @@ const shouldScrollToTopRef = useRef(false);
                             </button>
                           ))}
                         </div>
-                      </motion.div>
+                      </Motion.div>
                     )}
                   </AnimatePresence>
-                </motion.div>
+                </Motion.div>
 
                 {/* Bathrooms Filter */}
-                <motion.div layout className={getFilterCardClasses('bathrooms')}>
+                <Motion.div layout className={getFilterCardClasses('bathrooms')}>
                   <div 
                     className="flex justify-between items-center cursor-pointer"
                     onClick={() => toggleFilterSection('bathrooms')}
@@ -2261,7 +2405,7 @@ const shouldScrollToTopRef = useRef(false);
                   
                   <AnimatePresence initial={false}>
                     {expandedFilter === 'bathrooms' && (
-                      <motion.div
+                      <Motion.div
                         key="bathrooms-content"
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
@@ -2284,10 +2428,10 @@ const shouldScrollToTopRef = useRef(false);
                             </button>
                           ))}
                         </div>
-                      </motion.div>
+                      </Motion.div>
                     )}
                   </AnimatePresence>
-                </motion.div>
+                </Motion.div>
 
                 {/* Amenities Filter */}
                 {/*
@@ -2340,7 +2484,7 @@ const shouldScrollToTopRef = useRef(false);
                   Apply Filters
                 </button>
               </div>
-            </motion.div>
+            </Motion.div>
           )}
           
           {/* Listings Header */}
@@ -2443,7 +2587,7 @@ const shouldScrollToTopRef = useRef(false);
               {viewMode === 'list' ? (
                 <div className="space-y-6">
                   {currentProperties.map((property) => (
-                    <motion.div
+                    <Motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.3 }}
@@ -2572,13 +2716,13 @@ const shouldScrollToTopRef = useRef(false);
                           </div>
                         </div>
                       </div>
-                    </motion.div>
+                    </Motion.div>
                   ))}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {currentProperties.map((property) => (
-                    <motion.div
+                    <Motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.3 }}
@@ -2704,7 +2848,7 @@ const shouldScrollToTopRef = useRef(false);
                           </a>
                         </div>
                       </div>
-                    </motion.div>
+                    </Motion.div>
                   ))}
                 </div>
               )}
