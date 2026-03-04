@@ -25,11 +25,27 @@ function Settings() {
     name: ''
   });
 
-  // Fetch features and property types on component mount
+  // State for filtering radius (site settings)
+  const [filterRadius, setFilterRadius] = useState('');
+  const [filterRadiusSubmitting, setFilterRadiusSubmitting] = useState(false);
+
+  // Fetch features, property types, and site settings on component mount
   useEffect(() => {
     fetchFeatures();
     fetchPropertyTypes();
+    fetchSiteSettings();
   }, []);
+
+  const fetchSiteSettings = async () => {
+    try {
+      const data = await propertyAPI.getSiteSettings();
+      const radius = data?.filter_radius ?? '';
+      setFilterRadius(radius !== '' && radius != null ? String(radius) : '');
+    } catch (error) {
+      toast.error('Failed to load site settings');
+      console.error('Error fetching site settings:', error);
+    }
+  };
 
   const fetchFeatures = async () => {
     try {
@@ -178,9 +194,62 @@ function Settings() {
     setDeleteConfirmation({ isOpen: false, type: null, id: null, name: '' });
   };
 
+  const handleFilterRadiusSubmit = async (e) => {
+    e.preventDefault();
+    const value = filterRadius.trim();
+    if (value === '') {
+      toast.error('Please enter a filtering radius');
+      return;
+    }
+    const num = parseFloat(value);
+    if (Number.isNaN(num) || num < 0) {
+      toast.error('Please enter a valid positive number');
+      return;
+    }
+    setFilterRadiusSubmitting(true);
+    try {
+      await propertyAPI.updateSiteSettings({
+        filter_radius: String(Number(value).toFixed(2))
+      });
+      toast.success('Filtering radius updated successfully');
+      await fetchSiteSettings();
+    } catch (error) {
+      toast.error('Failed to update filtering radius');
+      console.error('Error updating filtering radius:', error);
+    } finally {
+      setFilterRadiusSubmitting(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-6xl mx-auto p-3 sm:p-4 md:p-6">
       <h1 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 sm:mb-6">Settings</h1>
+
+      {/* Filtering Radius Section */}
+      <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 md:p-6 border border-gray-200 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-2 h-6 sm:h-8 bg-indigo-600 rounded"></div>
+          <h2 className="text-base sm:text-lg font-semibold text-gray-800">Filtering Radius</h2>
+        </div>
+        <form onSubmit={handleFilterRadiusSubmit} className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={filterRadius}
+            onChange={(e) => setFilterRadius(e.target.value)}
+            placeholder="Enter radius (e.g. 155.00)"
+            className="flex-1 p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm sm:text-base"
+          />
+          <button
+            type="submit"
+            disabled={filterRadiusSubmitting}
+            className="w-full sm:w-auto px-4 py-2 sm:py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm sm:text-base font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {filterRadiusSubmitting ? 'Saving...' : 'Save Radius'}
+          </button>
+        </form>
+      </div>
 
       {/* Features Section */}
       <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 md:p-6 border border-gray-200 mb-6">
