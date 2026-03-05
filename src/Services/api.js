@@ -354,7 +354,17 @@ export const propertyAPI = {
     }
   },
 
-  // Get locations
+  // Get locations (for location filter; optional search for location search box)
+  getLocations: async (params = {}) => {
+    try {
+      const response = await apiClient.get("/properties/locations/", { params });
+      return response.data;
+    } catch (error) {
+      console.error("[API] Failed to get locations:", error.message);
+      return { count: 0, next: null, previous: null, results: [] };
+    }
+  },
+
   getStates: async () => {
     try {
       const response = await apiClient.get("/properties/states/");
