@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { propertyAPI } from '../../Services/api';
-import { FaMapMarkerAlt, FaImage, FaTrash, FaPlus, FaArrowLeft, FaUpload } from 'react-icons/fa';
+import { FaTrash, FaPlus, FaArrowLeft, FaUpload } from 'react-icons/fa';
+// eslint-disable-next-line no-unused-vars -- motion is used as <motion.div> in JSX
 import { motion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
 
@@ -36,6 +37,8 @@ function EditProperty() {
     area: '',
     description: '',
     feature_details: [],
+    latitude: '',
+    longitude: '',
     google_embedded_map_link: '',
     youtube_video_link: '',
     nearby_places: [],
@@ -51,6 +54,7 @@ function EditProperty() {
     if (id) {
       fetchProperty();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchProperty is stable per id
   }, [id]);
 
   // Ensure property type is properly set when propertyTypes are loaded
@@ -67,6 +71,7 @@ function EditProperty() {
         }));
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only sync name when id changes, not when name is set
   }, [propertyTypes, formData.property_type_details?.id]);
 
   useEffect(() => {
@@ -146,6 +151,9 @@ function EditProperty() {
           name: data.property_type_details?.name || ''
         },
         
+        // Coordinates
+        latitude: data.latitude != null && data.latitude !== '' ? String(data.latitude) : '',
+        longitude: data.longitude != null && data.longitude !== '' ? String(data.longitude) : '',
         // Media and links
         google_embedded_map_link: data.google_embedded_map_link || '',
         youtube_video_link: data.youtube_video_link || '',
@@ -372,6 +380,11 @@ function EditProperty() {
       if (!formData.price || formData.price.trim() === '') {
         throw new Error('Price is required');
       }
+      const lat = formData.latitude != null && String(formData.latitude).trim() !== '' ? parseFloat(formData.latitude) : NaN;
+      const lng = formData.longitude != null && String(formData.longitude).trim() !== '' ? parseFloat(formData.longitude) : NaN;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        throw new Error('Latitude and longitude are required and must be valid numbers');
+      }
 
       // Create FormData object
       const formDataToSend = new FormData();
@@ -393,6 +406,8 @@ function EditProperty() {
       formDataToSend.append('state', formData.location?.state?.trim() || '');
       formDataToSend.append('district', formData.location?.district?.trim() || '');
       formDataToSend.append('city', formData.location?.city?.trim() || '');
+      formDataToSend.append('latitude', lat);
+      formDataToSend.append('longitude', lng);
 
       // Add numeric fields (except price which is handled separately)
       Object.entries(numericFields).forEach(([key, value]) => {
@@ -434,7 +449,7 @@ function EditProperty() {
 
       // Add new images
       if (selectedImages && selectedImages.length > 0) {
-        selectedImages.forEach((image, index) => {
+        selectedImages.forEach((image) => {
           if (image.file) {
             formDataToSend.append('uploaded_images', image.file);
           }
@@ -806,6 +821,30 @@ function EditProperty() {
                   value={formData.location.city}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Latitude <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  name="latitude"
+                  value={formData.latitude}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="e.g. 10.8505"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Longitude <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  name="longitude"
+                  value={formData.longitude}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="e.g. 76.2711"
                   required
                 />
               </div>
