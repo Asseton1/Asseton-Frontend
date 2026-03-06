@@ -167,8 +167,14 @@ export const propertyAPI = {
       if (params.bedrooms_min !== undefined && params.bedrooms_min !== null) {
         queryParams.append("bedrooms_min", params.bedrooms_min);
       }
+      if (params.bedrooms_max !== undefined && params.bedrooms_max !== null) {
+        queryParams.append("bedrooms_max", params.bedrooms_max);
+      }
       if (params.bathrooms_min !== undefined && params.bathrooms_min !== null) {
         queryParams.append("bathrooms_min", params.bathrooms_min);
+      }
+      if (params.bathrooms_max !== undefined && params.bathrooms_max !== null) {
+        queryParams.append("bathrooms_max", params.bathrooms_max);
       }
 
       // Ownership
