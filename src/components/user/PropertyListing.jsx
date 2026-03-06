@@ -42,22 +42,45 @@ const PropertyListing = () => {
   const searchCategory = searchParams.get("category")
     ? decodeURIComponent(searchParams.get("category"))
     : "all";
-  const bedroomsParamFromUrl = searchParams.get("bedrooms_min");
+  const bedroomsMinParamFromUrl = searchParams.get("bedrooms_min");
+  const bedroomsMaxParamFromUrl = searchParams.get("bedrooms_max");
   const searchBedrooms = useMemo(() => {
-    if (!bedroomsParamFromUrl) return "any";
-    const parsed = parseInt(bedroomsParamFromUrl, 10);
-    if (Number.isNaN(parsed)) return "any";
-    if (parsed >= 5) return "5+";
-    return parsed.toString();
-  }, [bedroomsParamFromUrl]);
-  const bathroomsParamFromUrl = searchParams.get("bathrooms_min");
+    if (!bedroomsMinParamFromUrl) return "any";
+    const parsedMin = parseInt(bedroomsMinParamFromUrl, 10);
+    const parsedMax = bedroomsMaxParamFromUrl
+      ? parseInt(bedroomsMaxParamFromUrl, 10)
+      : null;
+    if (Number.isNaN(parsedMin)) return "any";
+    if (parsedMin >= 5) return "5+";
+    // If exact match was provided, honor it. If max is missing, treat as exact for our UI.
+    if (
+      parsedMax == null ||
+      Number.isNaN(parsedMax) ||
+      parsedMax === parsedMin
+    ) {
+      return parsedMin.toString();
+    }
+    return "any";
+  }, [bedroomsMinParamFromUrl, bedroomsMaxParamFromUrl]);
+  const bathroomsMinParamFromUrl = searchParams.get("bathrooms_min");
+  const bathroomsMaxParamFromUrl = searchParams.get("bathrooms_max");
   const searchBathrooms = useMemo(() => {
-    if (!bathroomsParamFromUrl) return "any";
-    const parsed = parseInt(bathroomsParamFromUrl, 10);
-    if (Number.isNaN(parsed)) return "any";
-    if (parsed >= 4) return "4+";
-    return parsed.toString();
-  }, [bathroomsParamFromUrl]);
+    if (!bathroomsMinParamFromUrl) return "any";
+    const parsedMin = parseInt(bathroomsMinParamFromUrl, 10);
+    const parsedMax = bathroomsMaxParamFromUrl
+      ? parseInt(bathroomsMaxParamFromUrl, 10)
+      : null;
+    if (Number.isNaN(parsedMin)) return "any";
+    if (parsedMin >= 4) return "4+";
+    if (
+      parsedMax == null ||
+      Number.isNaN(parsedMax) ||
+      parsedMax === parsedMin
+    ) {
+      return parsedMin.toString();
+    }
+    return "any";
+  }, [bathroomsMinParamFromUrl, bathroomsMaxParamFromUrl]);
   const legacyPriceParam = searchParams.get("price");
   const priceMinParam = searchParams.get("price_min");
   const priceMaxParam = searchParams.get("price_max");
@@ -297,8 +320,8 @@ const PropertyListing = () => {
   const initialLoadRef = useRef(true);
   const lastRequestedSignatureRef = useRef(null);
   const shouldScrollToTopRef = useRef(false);
-  // Skip one fetch when URL (e.g. type=buy) just changed so state can sync first and we only make one API call
-  const lastLocationSearchRef = useRef(location.search);
+  // Skip one fetch when URL (e.g. from home search) just changed so state can sync first and we only make one API call
+  const lastLocationSearchRef = useRef(null);
 
   // Property types state
   const [propertyTypes, setPropertyTypes] = useState([]);
@@ -334,12 +357,16 @@ const PropertyListing = () => {
   ];
 
   // Add state for suggested locations
-  const [suggestedLocations, setSuggestedLocations] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [_suggestedLocations, setSuggestedLocations] = useState([]);
+  const [_showSuggestions, setShowSuggestions] = useState(false);
   // Locations from properties/locations API (shown in "Existing locations" when Location filter is expanded)
   const [locationsFromApi, setLocationsFromApi] = useState([]);
   const [locationsLoading, setLocationsLoading] = useState(false);
   const [locationsError, setLocationsError] = useState(null);
+  const [locationsPage, setLocationsPage] = useState(1);
+  const [locationsHasMore, setLocationsHasMore] = useState(false);
+  const [locationsLoadingMore, setLocationsLoadingMore] = useState(false);
+  const locationsListScrollRef = useRef(null);
 
   const _toggleFavorite = (id) => {
     setFavorites((prev) => ({
@@ -479,6 +506,7 @@ const PropertyListing = () => {
         const beds = parseInt(bedroomsFilter);
         if (!isNaN(beds)) {
           params.bedrooms_min = beds;
+          params.bedrooms_max = beds;
         }
       }
     }
@@ -491,6 +519,7 @@ const PropertyListing = () => {
         const baths = parseInt(bathroomsFilter);
         if (!isNaN(baths)) {
           params.bathrooms_min = baths;
+          params.bathrooms_max = baths;
         }
       }
     }
@@ -529,20 +558,19 @@ const PropertyListing = () => {
       params.area_max = centsMax;
     }
 
-    // Location search
-    const trimmedSearch = searchQuery?.trim();
-    if (trimmedSearch) {
-      params.search = trimmedSearch;
-    }
-
-    // Latitude/longitude when user selects a location (for distance/nearby filtering)
-    if (
+    // Location: when user chose "Use my current location", send only latitude/longitude (no search param)
+    const hasUserLocation =
       userLocation &&
       typeof userLocation.lat === "number" &&
-      typeof userLocation.lng === "number"
-    ) {
+      typeof userLocation.lng === "number";
+    if (hasUserLocation) {
       params.latitude = userLocation.lat;
       params.longitude = userLocation.lng;
+    } else {
+      const trimmedSearch = searchQuery?.trim();
+      if (trimmedSearch) {
+        params.search = trimmedSearch;
+      }
     }
 
     // Property for (rent/sell) - map 'buy' to 'sell'
@@ -608,13 +636,17 @@ const PropertyListing = () => {
   useEffect(() => {
     if (expandedFilter !== "location") return;
     let cancelled = false;
+    setLocationsPage(1);
+    setLocationsHasMore(false);
     const fetchLocations = async () => {
       setLocationsLoading(true);
       setLocationsError(null);
       try {
-        const data = await propertyAPI.getLocations();
+        const data = await propertyAPI.getLocations({ page: 1 });
         if (!cancelled && data?.results) {
           setLocationsFromApi(data.results);
+          setLocationsHasMore(!!data.next);
+          setLocationsPage(2);
         } else if (!cancelled) {
           setLocationsFromApi([]);
         }
@@ -635,10 +667,49 @@ const PropertyListing = () => {
 
   // Fetch properties from API with filters and pagination
   useEffect(() => {
-    // When URL just changed (e.g. user clicked Buy in header), skip this run so the sync effect
-    // can update state from URL first; the next run will fetch once with correct params.
+    // When URL just changed: skip this run so state can sync from URL first — unless we're the
+    // ones who pushed (e.g. "Use my location" or user changed a filter); then fetch with new params.
     if (location.search !== lastLocationSearchRef.current) {
       lastLocationSearchRef.current = location.search;
+      const weJustPushedUrl = justPushedUrlRef.current;
+      if (weJustPushedUrl) {
+        justPushedUrlRef.current = false;
+      } else {
+        const hasQueryParams =
+          location.search &&
+          location.search.trim() !== "" &&
+          location.search.trim() !== "?";
+        if (hasQueryParams) return;
+      }
+    }
+
+    // Don't fetch if the URL has filter params (area, price) that aren't in fetchParams yet —
+    // state from parseQueryParams hasn't committed, so we'd fetch with wrong (default) params.
+    const urlParams = new URLSearchParams(
+      location.search.startsWith("?")
+        ? location.search.slice(1)
+        : location.search,
+    );
+    const urlAreaMin = urlParams.get("area_min");
+    const urlAreaMax = urlParams.get("area_max");
+    const urlPriceMin = urlParams.get("price_min");
+    const urlPriceMax = urlParams.get("price_max");
+    const urlHasArea =
+      (urlAreaMin && Number(urlAreaMin) > 0) ||
+      (urlAreaMax && Number(urlAreaMax) < 100000);
+    const urlHasPrice =
+      (urlPriceMin && Number(urlPriceMin) > 0) ||
+      (urlPriceMax && Number(urlPriceMax) < 1000000000);
+    const paramsHasArea =
+      fetchParams.area_min != null &&
+      fetchParams.area_max != null &&
+      (Number(fetchParams.area_min) > 0 ||
+        Number(fetchParams.area_max) < 100000);
+    const paramsHasPrice =
+      (fetchParams.price_min != null && Number(fetchParams.price_min) > 0) ||
+      (fetchParams.price_max != null &&
+        Number(fetchParams.price_max) < 1000000000);
+    if ((urlHasArea && !paramsHasArea) || (urlHasPrice && !paramsHasPrice)) {
       return;
     }
 
@@ -817,7 +888,7 @@ const PropertyListing = () => {
   };
 
   // Function to get unique locations from properties (with latitude/longitude for each)
-  const getUniqueLocations = (properties) => {
+  const _getUniqueLocations = (properties) => {
     const seen = new Set();
     const list = [];
     properties.forEach((property) => {
@@ -839,7 +910,7 @@ const PropertyListing = () => {
   };
 
   // Initialize Fuse instance for fuzzy search on location objects
-  const initializeFuseSearch = (locationObjs) => {
+  const _initializeFuseSearch = (locationObjs) => {
     return new Fuse(locationObjs, {
       includeScore: true,
       threshold: 0.4,
@@ -851,21 +922,9 @@ const PropertyListing = () => {
   // Function to handle location search and suggestions (from existing properties)
   const handleLocationSearch = (searchValue) => {
     setPendingSearch(searchValue);
-
-    const trimmedValue = searchValue.trim();
-    const uniqueLocations = getUniqueLocations(properties);
-
-    if (trimmedValue.length < 2) {
-      setSuggestedLocations(uniqueLocations);
-      setShowSuggestions(uniqueLocations.length > 0);
-      return;
-    }
-
-    const fuse = initializeFuseSearch(uniqueLocations);
-    const results = fuse.search(trimmedValue);
-    const suggestions = results.slice(0, 8).map((r) => r.item);
-    setSuggestedLocations(suggestions);
-    setShowSuggestions(true);
+    // Autocomplete suggestions are disabled; only search via button/Enter.
+    setSuggestedLocations([]);
+    setShowSuggestions(false);
   };
 
   // Function to handle suggestion selection — pass only latitude/longitude (no search param). Search is only sent when user types and clicks Search.
@@ -878,26 +937,44 @@ const PropertyListing = () => {
     setSearchQuery(""); // Do not send search param when selecting from dropdown; only lat/lng are sent
     setShowSuggestions(false);
     setSuggestedLocations([]);
-    if (
-      typeof locationItem === "object" &&
-      locationItem != null &&
-      typeof locationItem.latitude === "number" &&
-      typeof locationItem.longitude === "number"
-    ) {
-      setUserLocation({
-        lat: locationItem.latitude,
-        lng: locationItem.longitude,
-      });
-    } else if (
-      typeof locationItem === "object" &&
-      locationItem != null &&
-      locationItem.latitude != null &&
-      locationItem.longitude != null
-    ) {
-      setUserLocation({
-        lat: parseFloat(locationItem.latitude),
-        lng: parseFloat(locationItem.longitude),
-      });
+    const rawLat =
+      typeof locationItem === "object" && locationItem != null
+        ? locationItem.latitude
+        : null;
+    const rawLng =
+      typeof locationItem === "object" && locationItem != null
+        ? locationItem.longitude
+        : null;
+    const parsedLat =
+      typeof rawLat === "number"
+        ? rawLat
+        : rawLat != null
+          ? parseFloat(rawLat)
+          : NaN;
+    const parsedLng =
+      typeof rawLng === "number"
+        ? rawLng
+        : rawLng != null
+          ? parseFloat(rawLng)
+          : NaN;
+    const hasValidCoords =
+      Number.isFinite(parsedLat) && Number.isFinite(parsedLng);
+
+    if (hasValidCoords) {
+      setUserLocation({ lat: parsedLat, lng: parsedLng });
+      suppressPageSyncRef.current = true;
+      setCurrentPage(1);
+
+      // Keep other filters, but remove ?search= and ensure only latitude/longitude are passed
+      const nextParams = new URLSearchParams(location.search || "");
+      nextParams.delete("search");
+      nextParams.delete("lat");
+      nextParams.delete("lng");
+      nextParams.delete("page");
+      nextParams.set("latitude", parsedLat.toString());
+      nextParams.set("longitude", parsedLng.toString());
+      const qs = nextParams.toString();
+      navigate(`${location.pathname}${qs ? `?${qs}` : ""}`, { replace: true });
     }
     setShowFilters(false); // Close Advanced Filters so results are visible
   };
@@ -916,12 +993,17 @@ const PropertyListing = () => {
     setLocationsLoading(true);
     setLocationsError(null);
     try {
-      const params = searchValue ? { search: searchValue } : {};
+      const params = searchValue
+        ? { search: searchValue, page: 1 }
+        : { page: 1 };
       const data = await propertyAPI.getLocations(params);
       if (data?.results) {
         setLocationsFromApi(data.results);
+        setLocationsHasMore(!!data.next);
+        setLocationsPage(2);
       } else {
         setLocationsFromApi([]);
+        setLocationsHasMore(false);
       }
     } catch (err) {
       setLocationsError(err?.message || "Failed to search locations");
@@ -930,6 +1012,38 @@ const PropertyListing = () => {
       setLocationsLoading(false);
     }
   }, [pendingSearch]);
+
+  // Load more locations when user scrolls to the end of the Existing locations list
+  const loadMoreLocations = useCallback(async () => {
+    if (locationsLoadingMore || !locationsHasMore || locationsPage < 2) return;
+    const searchValue = pendingSearch.trim();
+    setLocationsLoadingMore(true);
+    try {
+      const params = { page: locationsPage };
+      if (searchValue) params.search = searchValue;
+      const data = await propertyAPI.getLocations(params);
+      if (data?.results && data.results.length > 0) {
+        setLocationsFromApi((prev) => [...prev, ...data.results]);
+      }
+      setLocationsHasMore(!!data.next);
+      setLocationsPage((p) => p + 1);
+    } catch (err) {
+      setLocationsError(err?.message || "Failed to load more locations");
+    } finally {
+      setLocationsLoadingMore(false);
+    }
+  }, [locationsLoadingMore, locationsHasMore, locationsPage, pendingSearch]);
+
+  // Scroll handler for Existing locations list: fetch next page when near bottom
+  const handleLocationsListScroll = useCallback(() => {
+    const el = locationsListScrollRef.current;
+    if (!el || locationsLoadingMore || !locationsHasMore) return;
+    const { scrollTop, clientHeight, scrollHeight } = el;
+    const threshold = 60;
+    if (scrollTop + clientHeight >= scrollHeight - threshold) {
+      loadMoreLocations();
+    }
+  }, [locationsLoadingMore, locationsHasMore, loadMoreLocations]);
 
   // Add helper function to format area numbers
   const _formatAreaNumber = (number) => {
@@ -1008,9 +1122,17 @@ const PropertyListing = () => {
 
   // Sync pending search with applied search when URL parameter changes
   useEffect(() => {
-    setSearchQuery(searchLocation);
-    setPendingSearch(searchLocation);
-  }, [searchLocation]);
+    const params = new URLSearchParams(location.search || "");
+    const hasSearchParam = params.has("search");
+    if (hasSearchParam) {
+      setSearchQuery(searchLocation);
+      setPendingSearch(searchLocation);
+    } else {
+      // When URL has no ?search= (e.g. location chosen via lat/lng), do not wipe the display text.
+      // We still clear the applied searchQuery so we don't send ?search= to the backend.
+      setSearchQuery("");
+    }
+  }, [searchLocation, location.search]);
 
   // Show loading state when filters change
   useEffect(() => {
@@ -1054,13 +1176,15 @@ const PropertyListing = () => {
       const areaMax = searchParams.get("area_max") || null;
       const sqft = searchParams.get("sqft") || null;
       const cents = searchParams.get("cents") || null;
-      // We intentionally ignore any latitude/longitude from the URL on load
-      // so that refreshing or opening the page does not auto-apply location filters.
-      const lat = null;
-      const lng = null;
+      const lat =
+        searchParams.get("latitude") || searchParams.get("lat") || null;
+      const lng =
+        searchParams.get("longitude") || searchParams.get("lng") || null;
       const pageSizeParam = searchParams.get("page_size") || null;
       const bedroomsMinParam = searchParams.get("bedrooms_min") || null;
+      const bedroomsMaxParam = searchParams.get("bedrooms_max") || null;
       const bathroomsMinParam = searchParams.get("bathrooms_min") || null;
+      const bathroomsMaxParam = searchParams.get("bathrooms_max") || null;
       const pageParam = searchParams.get("page") || null;
 
       // Set listing type filter based on URL parameter
@@ -1088,9 +1212,16 @@ const PropertyListing = () => {
       }
 
       // Set location search
-      const normalizedLocation = locationParam || "";
-      setSearchQuery(normalizedLocation);
-      setPendingSearch(normalizedLocation);
+      const hasSearchParam = searchParams.has("search");
+      if (hasSearchParam) {
+        const normalizedLocation = locationParam || "";
+        setSearchQuery(normalizedLocation);
+        setPendingSearch(normalizedLocation);
+      } else {
+        // If URL does not include ?search= (e.g. user selected a location item that sets lat/lng),
+        // keep the input display text as-is and ensure we don't send a search param.
+        setSearchQuery("");
+      }
 
       // Set price range
       if (priceMin || priceMax) {
@@ -1172,9 +1303,23 @@ const PropertyListing = () => {
       if (bedroomsMinParam) {
         const parsedBedrooms = parseInt(bedroomsMinParam, 10);
         if (!Number.isNaN(parsedBedrooms)) {
-          setBedroomsFilter(
-            parsedBedrooms >= 5 ? "5+" : parsedBedrooms.toString(),
-          );
+          if (parsedBedrooms >= 5) {
+            setBedroomsFilter("5+");
+          } else {
+            const parsedBedroomsMax = bedroomsMaxParam
+              ? parseInt(bedroomsMaxParam, 10)
+              : null;
+            // Treat as exact only when min==max (or max missing)
+            if (
+              parsedBedroomsMax == null ||
+              Number.isNaN(parsedBedroomsMax) ||
+              parsedBedroomsMax === parsedBedrooms
+            ) {
+              setBedroomsFilter(parsedBedrooms.toString());
+            } else {
+              setBedroomsFilter("any");
+            }
+          }
         }
       } else {
         setBedroomsFilter("any");
@@ -1183,9 +1328,22 @@ const PropertyListing = () => {
       if (bathroomsMinParam) {
         const parsedBathrooms = parseInt(bathroomsMinParam, 10);
         if (!Number.isNaN(parsedBathrooms)) {
-          setBathroomsFilter(
-            parsedBathrooms >= 4 ? "4+" : parsedBathrooms.toString(),
-          );
+          if (parsedBathrooms >= 4) {
+            setBathroomsFilter("4+");
+          } else {
+            const parsedBathroomsMax = bathroomsMaxParam
+              ? parseInt(bathroomsMaxParam, 10)
+              : null;
+            if (
+              parsedBathroomsMax == null ||
+              Number.isNaN(parsedBathroomsMax) ||
+              parsedBathroomsMax === parsedBathrooms
+            ) {
+              setBathroomsFilter(parsedBathrooms.toString());
+            } else {
+              setBathroomsFilter("any");
+            }
+          }
         }
       } else {
         setBathroomsFilter("any");
@@ -1221,43 +1379,87 @@ const PropertyListing = () => {
     applyCentsRangeState,
   ]);
 
-  // On mount (refresh or open property-listing): reset all filters and clear URL so listing always loads unfiltered
+  // On mount: reset filters on refresh (reload); preserve URL params when navigating in-app (e.g. Search Properties, Properties dropdown).
   const skipNextParseRef = useRef(true); // Skip parsing URL on first run so defaults stick
   const justAppliedDefaultsRef = useRef(false); // So sync effect doesn't re-push params before state flushes
   const hasResetOnMountRef = useRef(false);
   const justPushedUrlRef = useRef(false); // Skip parsing once after we pushed state to URL (avoids update loop)
   const lastAcceptedLocationSearchRef = useRef(null); // When URL changes from outside (e.g. header Rent/Buy), don't overwrite it
+  const appliedUrlParamsOnMountRef = useRef(false); // Skip pushing URL once after we applied home-page params (state not committed yet)
   useEffect(() => {
     if (location.pathname !== "/property-listing" || hasResetOnMountRef.current)
       return;
     hasResetOnMountRef.current = true;
-    justAppliedDefaultsRef.current = true;
-    setActiveFilter("all");
-    setPriceRange([0, 1000000000]);
-    setDebouncedPriceRange([0, 1000000000]);
-    setBedroomsFilter("any");
-    setBathroomsFilter("any");
-    setOwnershipFilter("all");
-    setListingTypeFilter("all");
-    setSearchQuery("");
-    setPendingSearch("");
-    setUserLocation(null);
-    setSquareFeetRange([0, 100000]);
-    setCentsRange([0, 100000]);
-    setSuggestedLocations([]);
-    setShowSuggestions(false);
-    suppressPageSyncRef.current = true;
-    setCurrentPage(1);
-    applyPriceRangeState(0, 1000000000);
-    applySquareFeetRangeState(0, 100000);
-    applyCentsRangeState(0, 100000);
-    navigate(location.pathname, { replace: true });
+
+    const navEntry = performance.getEntriesByType?.("navigation")?.[0];
+    const isPageReload = navEntry?.type === "reload";
+
+    if (isPageReload) {
+      // User refreshed the page: reset all filters and clear URL
+      justAppliedDefaultsRef.current = true;
+      setActiveFilter("all");
+      setPriceRange([0, 1000000000]);
+      setDebouncedPriceRange([0, 1000000000]);
+      setBedroomsFilter("any");
+      setBathroomsFilter("any");
+      setOwnershipFilter("all");
+      setListingTypeFilter("all");
+      setSearchQuery("");
+      setPendingSearch("");
+      setUserLocation(null);
+      setSquareFeetRange([0, 100000]);
+      setCentsRange([0, 100000]);
+      setSuggestedLocations([]);
+      setShowSuggestions(false);
+      suppressPageSyncRef.current = true;
+      setCurrentPage(1);
+      applyPriceRangeState(0, 1000000000);
+      applySquareFeetRangeState(0, 100000);
+      applyCentsRangeState(0, 100000);
+      navigate(location.pathname, { replace: true });
+      return;
+    }
+
+    // In-app navigation: preserve URL params if any (e.g. from Search Properties or Properties dropdown)
+    const hasQueryParams =
+      location.search &&
+      location.search.trim() !== "" &&
+      location.search.trim() !== "?";
+    if (!hasQueryParams) {
+      justAppliedDefaultsRef.current = true;
+      setActiveFilter("all");
+      setPriceRange([0, 1000000000]);
+      setDebouncedPriceRange([0, 1000000000]);
+      setBedroomsFilter("any");
+      setBathroomsFilter("any");
+      setOwnershipFilter("all");
+      setListingTypeFilter("all");
+      setSearchQuery("");
+      setPendingSearch("");
+      setUserLocation(null);
+      setSquareFeetRange([0, 100000]);
+      setCentsRange([0, 100000]);
+      setSuggestedLocations([]);
+      setShowSuggestions(false);
+      suppressPageSyncRef.current = true;
+      setCurrentPage(1);
+      applyPriceRangeState(0, 1000000000);
+      applySquareFeetRangeState(0, 100000);
+      applyCentsRangeState(0, 100000);
+      navigate(location.pathname, { replace: true });
+    } else {
+      // Apply home-page (or other) URL params to state so the first fetch uses them
+      appliedUrlParamsOnMountRef.current = true;
+      parseQueryParams();
+    }
   }, [
     location.pathname,
+    location.search,
     applyPriceRangeState,
     applySquareFeetRangeState,
     applyCentsRangeState,
     navigate,
+    parseQueryParams,
   ]);
 
   // Apply URL parameters when URL changes (skip first run so default-no-filter state is not overwritten)
@@ -1281,13 +1483,20 @@ const PropertyListing = () => {
       params.set("propertyType", activeFilter);
     }
     if (bedroomsFilter && bedroomsFilter !== "any") {
-      const normalizedBedrooms = bedroomsFilter === "5+" ? "5" : bedroomsFilter;
-      params.set("bedrooms_min", normalizedBedrooms);
+      if (bedroomsFilter === "5+") {
+        params.set("bedrooms_min", "5");
+      } else {
+        params.set("bedrooms_min", bedroomsFilter);
+        params.set("bedrooms_max", bedroomsFilter);
+      }
     }
     if (bathroomsFilter && bathroomsFilter !== "any") {
-      const normalizedBathrooms =
-        bathroomsFilter === "4+" ? "4" : bathroomsFilter;
-      params.set("bathrooms_min", normalizedBathrooms);
+      if (bathroomsFilter === "4+") {
+        params.set("bathrooms_min", "4");
+      } else {
+        params.set("bathrooms_min", bathroomsFilter);
+        params.set("bathrooms_max", bathroomsFilter);
+      }
     }
     if (
       !(debouncedPriceRange[0] === 0 && debouncedPriceRange[1] === 1000000000)
@@ -1328,15 +1537,16 @@ const PropertyListing = () => {
     }
     if (ownershipFilter && ownershipFilter !== "all")
       params.set("ownership", ownershipFilter);
-    if (searchQuery && searchQuery.trim())
-      params.set("search", searchQuery.trim());
-    if (
+    // When user chose "Use my current location", URL gets only latitude/longitude (no search param)
+    const hasUserLocation =
       userLocation &&
       typeof userLocation.lat === "number" &&
-      typeof userLocation.lng === "number"
-    ) {
+      typeof userLocation.lng === "number";
+    if (hasUserLocation) {
       params.set("latitude", userLocation.lat.toString());
       params.set("longitude", userLocation.lng.toString());
+    } else if (searchQuery && searchQuery.trim()) {
+      params.set("search", searchQuery.trim());
     }
     if (itemsPerPage) params.set("page_size", itemsPerPage.toString());
     if (currentPage && currentPage !== 1) params.set("page", currentPage);
@@ -1382,6 +1592,17 @@ const PropertyListing = () => {
       : location.search;
     const normalizedFilter = normalizeQuery(filterQueryString);
     const normalizedCurrent = normalizeQuery(currentSearch);
+
+    // Don't overwrite URL until state has caught up with the URL we landed with (e.g. from home search).
+    // Otherwise we'd push stale (default) state and drop area/price params, then re-parse would reset state.
+    if (appliedUrlParamsOnMountRef.current) {
+      lastAcceptedLocationSearchRef.current = normalizedCurrent || "";
+      if (normalizedFilter === normalizedCurrent) {
+        appliedUrlParamsOnMountRef.current = false;
+      }
+      return;
+    }
+
     // URL was changed from outside (e.g. user clicked Rent/Buy in header) — don't overwrite; let parseQueryParams sync state
     if (normalizedCurrent !== lastAcceptedLocationSearchRef.current) {
       lastAcceptedLocationSearchRef.current = normalizedCurrent;
@@ -1395,29 +1616,7 @@ const PropertyListing = () => {
     }
   }, [filterQueryString, navigate, location.pathname, location.search]);
 
-  // Show filters by default if any filter is set
-  useEffect(() => {
-    if (
-      searchLocation ||
-      searchBedrooms !== "any" ||
-      priceMinParam ||
-      priceMaxParam ||
-      (areaUnitParam === "sqft" && (areaMinParam || areaMaxParam)) ||
-      (areaUnitParam === "cent" && (areaMinParam || areaMaxParam)) ||
-      searchSqft !== "Square Feet"
-    ) {
-      setShowFilters(true);
-    }
-  }, [
-    searchLocation,
-    searchBedrooms,
-    priceMinParam,
-    priceMaxParam,
-    areaUnitParam,
-    areaMinParam,
-    areaMaxParam,
-    searchSqft,
-  ]);
+  // Filters section stays closed by default (including when landing from Search Properties or Properties dropdown).
 
   // Reset filters function
   const resetFilters = () => {
@@ -1499,13 +1698,17 @@ const PropertyListing = () => {
     const successCallback = (position) => {
       const { latitude, longitude } = position.coords;
 
-      // Set user location
+      // Set user location (this triggers fetch with lat/lng and updates URL)
       setUserLocation({
         lat: latitude,
         lng: longitude,
       });
 
-      // Get address from coordinates using reverse geocoding
+      // Close the filters section so the user sees the results
+      setExpandedFilter(null);
+      setShowFilters(false);
+
+      // Get address from coordinates using reverse geocoding (for display in the input)
       fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
       )
@@ -1573,82 +1776,58 @@ const PropertyListing = () => {
   // Update the search input in the filters section
   const searchInputSection = (
     <div className="relative w-full">
-      <div className="relative flex items-center">
-        <FaMapMarkerAlt className="absolute left-4 text-gray-400" />
+      <div className="w-full rounded-lg border border-gray-200 bg-white overflow-hidden flex items-stretch">
+        <div className="flex items-center pl-4 pr-2 text-gray-400">
+          <FaMapMarkerAlt className="w-4 h-4" />
+        </div>
         <input
           type="text"
           placeholder="Enter location"
           value={pendingSearch}
           onChange={(e) => handleLocationSearch(e.target.value)}
-          onFocus={() => {
-            const locations = getUniqueLocations(properties);
-            setSuggestedLocations(locations);
-            setShowSuggestions(locations.length > 0);
-          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
               fetchLocationsWithSearch();
             }
           }}
-          className="w-full py-3 pl-11 pr-28 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-700 placeholder-gray-400"
+          className="flex-1 py-3 pr-3 text-gray-700 placeholder-gray-400 outline-none ring-0 border-0 min-w-0 focus:outline-none focus:ring-0 focus:border-0 caret-gray-800"
         />
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-          {pendingSearch && (
-            <button
-              onClick={() => {
-                setSearchQuery("");
-                setPendingSearch("");
-                setUserLocation(null);
-                setSuggestedLocations([]);
-                setShowSuggestions(false);
-              }}
-              className="text-gray-400 hover:text-gray-600 p-1"
-            >
-              <FaTimes className="w-4 h-4" />
-            </button>
-          )}
+        {pendingSearch && (
           <button
-            onClick={fetchLocationsWithSearch}
-            className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors duration-200 flex items-center gap-1"
+            type="button"
+            onClick={() => {
+              setSearchQuery("");
+              setPendingSearch("");
+              setUserLocation(null);
+              setSuggestedLocations([]);
+              setShowSuggestions(false);
+            }}
+            className="px-3 text-gray-400 hover:text-gray-600"
+            aria-label="Clear location"
           >
-            <FaSearch className="w-4 h-4" />
-            <span className="text-sm font-medium">Search</span>
+            <FaTimes className="w-4 h-4" />
           </button>
-        </div>
+        )}
+        <button
+          type="button"
+          onClick={fetchLocationsWithSearch}
+          className="px-4 bg-green-600 text-white hover:bg-green-700 transition-colors duration-200 flex items-center gap-2 whitespace-nowrap"
+        >
+          <FaSearch className="w-4 h-4" />
+          <span className="text-sm font-medium">Search</span>
+        </button>
       </div>
 
-      {/* Location Suggestions Dropdown - existing locations from properties (with lat/lng on select) */}
-      {showSuggestions && suggestedLocations.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-          {suggestedLocations.map((loc, index) => {
-            const displayText = typeof loc === "string" ? loc : loc.displayText;
-            return (
-              <div
-                key={index}
-                className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                onClick={() => handleSuggestionSelect(loc)}
-              >
-                <div className="flex items-center gap-3">
-                  <FaMapMarkerAlt className="text-green-500 flex-shrink-0" />
-                  <div>
-                    <div className="text-gray-700">{displayText}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">
-                      Select to filter by this location
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* Autocomplete suggestions intentionally disabled */}
     </div>
   );
 
   const getFilterCardClasses = (section) =>
-    `w-full bg-gray-50 p-4 rounded-lg border border-gray-100 transition-all duration-300 self-stretch min-h-[5rem] ${
-      expandedFilter === section ? "shadow-lg border-green-200" : ""
+    `w-full bg-gray-50 p-4 rounded-lg border transition-all duration-300 self-stretch min-h-[5rem] ${
+      expandedFilter === section
+        ? "shadow-lg border-gray-200"
+        : "border-gray-100"
     }`;
   const filterHeaderClasses =
     "flex justify-between items-center cursor-pointer min-h-12";
@@ -1679,7 +1858,7 @@ const PropertyListing = () => {
             transition={{ duration: 0.25, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <div className="space-y-4">
+            <div className="space-y-4 pb-6">
               {/* Search Input */}
               {searchInputSection}
 
@@ -1704,7 +1883,11 @@ const PropertyListing = () => {
                     No locations found. Please update your location keyword.
                   </div>
                 ) : (
-                  <div className="border border-gray-200 rounded-lg bg-white max-h-48 overflow-y-auto shadow-inner">
+                  <div
+                    ref={locationsListScrollRef}
+                    onScroll={handleLocationsListScroll}
+                    className="border border-gray-200 rounded-lg bg-white max-h-48 overflow-y-auto shadow-inner"
+                  >
                     {locationsFromApi.map((loc, index) => {
                       const item = {
                         displayText:
@@ -1718,7 +1901,7 @@ const PropertyListing = () => {
                       };
                       return (
                         <div
-                          key={index}
+                          key={loc.id != null ? loc.id : index}
                           className="px-3 py-2.5 hover:bg-green-50 cursor-pointer border-b border-gray-100 last:border-b-0 flex items-center gap-2"
                           onClick={() => handleSuggestionSelect(item)}
                         >
@@ -1729,6 +1912,19 @@ const PropertyListing = () => {
                         </div>
                       );
                     })}
+                    {locationsLoadingMore && (
+                      <div className="px-3 py-2.5 flex items-center justify-center gap-2 text-gray-500 text-sm border-t border-gray-100">
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-green-600" />
+                        <span>Loading more...</span>
+                      </div>
+                    )}
+                    {locationsHasMore &&
+                      !locationsLoadingMore &&
+                      locationsFromApi.length > 0 && (
+                        <div className="px-3 py-1.5 text-center text-gray-400 text-xs border-t border-gray-100">
+                          Scroll for more
+                        </div>
+                      )}
                   </div>
                 )}
               </div>
@@ -1842,12 +2038,7 @@ const PropertyListing = () => {
                   const num = Number.isNaN(v)
                     ? 0
                     : Math.max(0, Math.min(100000, v));
-                  setSquareFeetRange((prev) => [
-                    num,
-                    typeof prev[1] === "number"
-                      ? Math.max(num, prev[1])
-                      : 100000,
-                  ]);
+                  setSquareFeetRange((prev) => [num, prev[1]]);
                 }}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
@@ -1872,10 +2063,7 @@ const PropertyListing = () => {
                   const num = Number.isNaN(v)
                     ? 100000
                     : Math.max(0, Math.min(100000, v));
-                  setSquareFeetRange((prev) => [
-                    typeof prev[0] === "number" ? Math.min(prev[0], num) : 0,
-                    num,
-                  ]);
+                  setSquareFeetRange((prev) => [prev[0], num]);
                 }}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
@@ -1921,12 +2109,7 @@ const PropertyListing = () => {
                   const num = Number.isNaN(v)
                     ? 0
                     : Math.max(0, Math.min(100000, v));
-                  setCentsRange((prev) => [
-                    num,
-                    typeof prev[1] === "number"
-                      ? Math.max(num, prev[1])
-                      : 100000,
-                  ]);
+                  setCentsRange((prev) => [num, prev[1]]);
                 }}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
@@ -1951,10 +2134,7 @@ const PropertyListing = () => {
                   const num = Number.isNaN(v)
                     ? 100000
                     : Math.max(0, Math.min(100000, v));
-                  setCentsRange((prev) => [
-                    typeof prev[0] === "number" ? Math.min(prev[0], num) : 0,
-                    num,
-                  ]);
+                  setCentsRange((prev) => [prev[0], num]);
                 }}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
@@ -2283,7 +2463,9 @@ const PropertyListing = () => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-stretch">
+              <div
+                className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-stretch ${expandedFilter ? "pb-20" : ""}`}
+              >
                 {locationFilterSection}
 
                 {/* Property Type Filter */}
@@ -2318,7 +2500,7 @@ const PropertyListing = () => {
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="mt-4">
+                        <div className="mt-4 pb-6">
                           <button
                             onClick={() => setActiveFilter("all")}
                             className={`w-full mb-3 px-4 py-2 rounded-lg text-sm transition-all duration-300 ${
@@ -2394,7 +2576,7 @@ const PropertyListing = () => {
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="mt-4 px-2">
+                        <div className="mt-4 px-2 pb-6">
                           <div className="flex justify-between text-sm text-gray-600 mb-2">
                             <span>₹{(priceRange[0] / 100000).toFixed(1)}L</span>
                             <span>
@@ -2487,7 +2669,7 @@ const PropertyListing = () => {
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="mt-4 px-2 space-y-4">
+                        <div className="mt-4 px-2 pb-6 space-y-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               Area (min) sq.ft
@@ -2512,12 +2694,7 @@ const PropertyListing = () => {
                                 const num = Number.isNaN(v)
                                   ? 0
                                   : Math.max(0, Math.min(100000, v));
-                                setSquareFeetRange((prev) => [
-                                  num,
-                                  typeof prev[1] === "number"
-                                    ? Math.max(num, prev[1])
-                                    : 100000,
-                                ]);
+                                setSquareFeetRange((prev) => [num, prev[1]]);
                               }}
                               className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             />
@@ -2546,12 +2723,7 @@ const PropertyListing = () => {
                                 const num = Number.isNaN(v)
                                   ? 100000
                                   : Math.max(0, Math.min(100000, v));
-                                setSquareFeetRange((prev) => [
-                                  typeof prev[0] === "number"
-                                    ? Math.min(prev[0], num)
-                                    : 0,
-                                  num,
-                                ]);
+                                setSquareFeetRange((prev) => [prev[0], num]);
                               }}
                               className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             />
@@ -2591,7 +2763,7 @@ const PropertyListing = () => {
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="mt-4 px-2 space-y-4">
+                        <div className="mt-4 px-2 pb-6 space-y-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               Area (min) cents
@@ -2612,12 +2784,7 @@ const PropertyListing = () => {
                                 const num = Number.isNaN(v)
                                   ? 0
                                   : Math.max(0, Math.min(100000, v));
-                                setCentsRange((prev) => [
-                                  num,
-                                  typeof prev[1] === "number"
-                                    ? Math.max(num, prev[1])
-                                    : 100000,
-                                ]);
+                                setCentsRange((prev) => [num, prev[1]]);
                               }}
                               className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             />
@@ -2642,12 +2809,7 @@ const PropertyListing = () => {
                                 const num = Number.isNaN(v)
                                   ? 100000
                                   : Math.max(0, Math.min(100000, v));
-                                setCentsRange((prev) => [
-                                  typeof prev[0] === "number"
-                                    ? Math.min(prev[0], num)
-                                    : 0,
-                                  num,
-                                ]);
+                                setCentsRange((prev) => [prev[0], num]);
                               }}
                               className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             />
@@ -2690,7 +2852,7 @@ const PropertyListing = () => {
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="mt-4 flex flex-wrap gap-2">
+                        <div className="mt-4 pb-6 flex flex-wrap gap-2">
                           <button
                             onClick={() => setOwnershipFilter("all")}
                             className={`px-4 py-2 rounded-lg text-sm transition-all duration-300 ${
@@ -2759,7 +2921,7 @@ const PropertyListing = () => {
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="mt-4 flex flex-wrap gap-2">
+                        <div className="mt-4 pb-6 flex flex-wrap gap-2">
                           {["all", "rent", "buy"].map((type) => (
                             <button
                               key={type}
@@ -2812,7 +2974,7 @@ const PropertyListing = () => {
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="mt-4 flex flex-wrap gap-2">
+                        <div className="mt-4 pb-6 flex flex-wrap gap-2">
                           {["any", "1", "2", "3", "4", "5+"].map((num) => (
                             <button
                               key={num}
@@ -2864,7 +3026,7 @@ const PropertyListing = () => {
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="mt-4 flex flex-wrap gap-2">
+                        <div className="mt-4 pb-6 flex flex-wrap gap-2">
                           {["any", "1", "2", "3", "4+"].map((num) => (
                             <button
                               key={num}
