@@ -18,6 +18,7 @@ import {
   FaTimes,
   FaChevronUp,
   FaChevronDown,
+  FaImage,
 } from "react-icons/fa";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
@@ -367,6 +368,7 @@ const PropertyListing = () => {
   const [locationsHasMore, setLocationsHasMore] = useState(false);
   const [locationsLoadingMore, setLocationsLoadingMore] = useState(false);
   const locationsListScrollRef = useRef(null);
+  const [propertyImageError, setPropertyImageError] = useState({});
 
   const _toggleFavorite = (id) => {
     setFavorites((prev) => ({
@@ -679,7 +681,10 @@ const PropertyListing = () => {
           location.search &&
           location.search.trim() !== "" &&
           location.search.trim() !== "?";
-        if (hasQueryParams) return;
+        // When we landed with params from UserHome (Search Properties), we applied them on mount — allow fetch
+        if (hasQueryParams && !appliedUrlParamsOnMountRef.current) return;
+        if (hasQueryParams && appliedUrlParamsOnMountRef.current)
+          appliedUrlParamsOnMountRef.current = false;
       }
     }
 
@@ -713,6 +718,16 @@ const PropertyListing = () => {
       return;
     }
 
+    // Dedupe: skip if we already requested this exact filters + page (e.g. Strict Mode double run)
+    if (
+      lastRequestedSignatureRef.current === filtersSignature &&
+      lastRequestedPageRef.current === currentPage
+    ) {
+      return;
+    }
+    lastRequestedSignatureRef.current = filtersSignature;
+    lastRequestedPageRef.current = currentPage;
+
     const fetchProperties = async () => {
       let shouldHideSkeleton = false;
       let shouldStopPageTransition = false;
@@ -735,10 +750,10 @@ const PropertyListing = () => {
 
         setError(null);
 
+        setError(null);
+        // Refs already set above for dedupe; keep in sync for any code that reads them after await
         lastRequestedSignatureRef.current = currentSignature;
         lastRequestedPageRef.current = currentPage;
-
-        setError(null);
 
         const response = await propertyAPI.getAllProperties(fetchParams);
 
@@ -1223,24 +1238,28 @@ const PropertyListing = () => {
         setSearchQuery("");
       }
 
-      // Set price range
+      // Set price range (and debounced so first fetch uses URL price immediately)
       if (priceMin || priceMax) {
         const parsedMin = priceMin ? parseInt(priceMin, 10) : 0;
         const parsedMax = priceMax ? parseInt(priceMax, 10) : 1000000000;
         const normalizedMin = Number.isNaN(parsedMin) ? 0 : parsedMin;
         const normalizedMax = Number.isNaN(parsedMax) ? 1000000000 : parsedMax;
         applyPriceRangeState(normalizedMin, normalizedMax);
+        setDebouncedPriceRange([normalizedMin, normalizedMax]);
       } else if (price && price.includes(",")) {
         const [minStr, maxStr] = price.split(",");
         const min = parseInt(minStr, 10);
         const max = parseInt(maxStr, 10);
         if (!Number.isNaN(min) && !Number.isNaN(max)) {
           applyPriceRangeState(min, max);
+          setDebouncedPriceRange([min, max]);
         } else {
           applyPriceRangeState(0, 1000000000);
+          setDebouncedPriceRange([0, 1000000000]);
         }
       } else {
         applyPriceRangeState(0, 1000000000);
+        setDebouncedPriceRange([0, 1000000000]);
       }
 
       // Set area filters (area_min and area_max)
@@ -1377,6 +1396,7 @@ const PropertyListing = () => {
     applyPriceRangeState,
     applySquareFeetRangeState,
     applyCentsRangeState,
+    setDebouncedPriceRange,
   ]);
 
   // On mount: reset filters on refresh (reload); preserve URL params when navigating in-app (e.g. Search Properties, Properties dropdown).
@@ -3231,15 +3251,31 @@ const PropertyListing = () => {
                       </button>
 
                       <div className="flex flex-col lg:flex-row h-full">
-                        <div className="relative w-full lg:w-2/5 h-[240px] lg:h-full overflow-hidden">
-                          <img
-                            src={
-                              property.images[0]?.image ||
-                              "default-image-url.jpg"
-                            }
-                            alt={property.title}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                          />
+                        <div className="relative w-full lg:w-2/5 h-[240px] lg:h-full overflow-hidden bg-gray-100">
+                          {!property.images?.[0]?.image ||
+                          propertyImageError[property.id] ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                              <FaImage
+                                className="w-14 h-14 mb-2 opacity-50"
+                                aria-hidden
+                              />
+                              <span className="text-sm font-medium">
+                                No image
+                              </span>
+                            </div>
+                          ) : (
+                            <img
+                              src={property.images[0].image}
+                              alt={property.title}
+                              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                              onError={() =>
+                                setPropertyImageError((prev) => ({
+                                  ...prev,
+                                  [property.id]: true,
+                                }))
+                              }
+                            />
+                          )}
                           <div className="absolute top-3 left-3 flex flex-col space-y-2">
                             {/* List View Badge */}
                             <span
@@ -3402,14 +3438,31 @@ const PropertyListing = () => {
                         <FaDirections className="text-green-600 text-2xl" />
                       </button>
 
-                      <div className="relative h-[220px] overflow-hidden">
-                        <img
-                          src={
-                            property.images[0]?.image || "default-image-url.jpg"
-                          }
-                          alt={property.title}
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                        />
+                      <div className="relative h-[220px] overflow-hidden bg-gray-100">
+                        {!property.images?.[0]?.image ||
+                        propertyImageError[property.id] ? (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                            <FaImage
+                              className="w-14 h-14 mb-2 opacity-50"
+                              aria-hidden
+                            />
+                            <span className="text-sm font-medium">
+                              No image
+                            </span>
+                          </div>
+                        ) : (
+                          <img
+                            src={property.images[0].image}
+                            alt={property.title}
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            onError={() =>
+                              setPropertyImageError((prev) => ({
+                                ...prev,
+                                [property.id]: true,
+                              }))
+                            }
+                          />
+                        )}
                         <div className="absolute top-3 left-3 flex flex-col space-y-2">
                           {/* Grid View Badge */}
                           <span
