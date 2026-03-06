@@ -39,6 +39,7 @@ function EditProperty() {
     feature_details: [],
     latitude: '',
     longitude: '',
+    google_maps_url: '',
     google_embedded_map_link: '',
     youtube_video_link: '',
     nearby_places: [],
@@ -155,6 +156,7 @@ function EditProperty() {
         latitude: data.latitude != null && data.latitude !== '' ? String(data.latitude) : '',
         longitude: data.longitude != null && data.longitude !== '' ? String(data.longitude) : '',
         // Media and links
+        google_maps_url: data.google_maps_url || '',
         google_embedded_map_link: data.google_embedded_map_link || '',
         youtube_video_link: data.youtube_video_link || '',
         
@@ -399,6 +401,7 @@ function EditProperty() {
       formDataToSend.append('title', formData.title.trim());
       formDataToSend.append('description', formData.description.trim());
       formDataToSend.append('furnishing', formData.furnishing);
+      formDataToSend.append('google_maps_url', (formData.google_maps_url || '').trim());
       formDataToSend.append('google_embedded_map_link', formData.google_embedded_map_link.trim());
       formDataToSend.append('youtube_video_link', formData.youtube_video_link.trim());
 
@@ -849,6 +852,17 @@ function EditProperty() {
                 />
               </div>
               <div className="col-span-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Google Map URL</label>
+                <input
+                  type="url"
+                  name="google_maps_url"
+                  value={formData.google_maps_url}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="https://www.google.com/maps/..."
+                />
+              </div>
+              <div className="col-span-3">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Google Embedded Map Link</label>
                 <textarea
                   name="google_embedded_map_link"
@@ -856,6 +870,7 @@ function EditProperty() {
                   onChange={handleInputChange}
                   rows="3"
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="Paste the Google Maps embed iframe code here..."
                 />
               </div>
             </div>
