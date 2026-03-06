@@ -703,6 +703,17 @@ const AddProperty = () => {
           </div>
 
           <div className="mt-4 sm:mt-6">
+            <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Google Map URL</label>
+            <input
+              type="url"
+              name="google_maps_url"
+              value={formData.google_maps_url}
+              onChange={handleInputChange}
+              className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+              placeholder="https://www.google.com/maps/..."
+            />
+          </div>
+          <div className="mt-4 sm:mt-6">
             <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Google Embedded Map Link <span className="text-red-500">*</span></label>
             <textarea
               name="google_embedded_map_link"
