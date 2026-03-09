@@ -617,6 +617,7 @@ export const propertyAPI = {
         "/properties/properties/",
         propertyData,
       );
+      console.log("POST /properties/properties/ response:", response);
       return response.data;
     } catch (error) {
       if (error.response?.data) {
