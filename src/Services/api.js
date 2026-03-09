@@ -363,7 +363,9 @@ export const propertyAPI = {
   // Get locations (for location filter; optional search for location search box)
   getLocations: async (params = {}) => {
     try {
-      const response = await apiClient.get("/properties/locations/", { params });
+      const response = await apiClient.get("/properties/locations/", {
+        params,
+      });
       return response.data;
     } catch (error) {
       console.error("[API] Failed to get locations:", error.message);
@@ -617,7 +619,14 @@ export const propertyAPI = {
         "/properties/properties/",
         propertyData,
       );
-      console.log("POST /properties/properties/ response:", response);
+      // Detailed response logging (runs in all environments including live)
+      console.log("[POST /properties/properties/] detailed response:", {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        data: response.data,
+        fullResponse: response,
+      });
       return response.data;
     } catch (error) {
       if (error.response?.data) {
