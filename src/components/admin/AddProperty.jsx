@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { propertyAPI } from '../../Services/api';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
-import { FaUpload, FaTrash } from 'react-icons/fa';
+import { FaUpload, FaTrash, FaChevronDown } from 'react-icons/fa';
 
 const AddProperty = () => {
   const navigate = useNavigate();
@@ -16,6 +16,9 @@ const AddProperty = () => {
   const [nearbyPlaces, setNearbyPlaces] = useState([{ place: '', km: '' }]);
   const [selectedImages, setSelectedImages] = useState([]);
   const [imageError, setImageError] = useState('');
+  const [stateOpen, setStateOpen] = useState(false);
+  const [districtOpen, setDistrictOpen] = useState(false);
+  const [cityOpen, setCityOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     property_for: 'rent',
@@ -75,55 +78,73 @@ const AddProperty = () => {
     };
   }, [selectedImages]);
 
-  const handleStateChange = async (e) => {
-    const stateId = e.target.value;
-    const selectedState = states.find(state => state.id.toString() === stateId);
-    setFormData({ 
-      ...formData, 
-      state: selectedState ? selectedState.name : '', 
-      district: '', 
-      city: '' 
-    });
-    try {
-      if (stateId) {
-        const districtsData = await propertyAPI.getDistricts(stateId);
-        setDistricts(districtsData);
-      } else {
-        setDistricts([]);
-      }
+  // When state name matches a state, fetch districts
+  useEffect(() => {
+    const matchedState = states.find(s => s.name === formData.state);
+    if (matchedState) {
+      propertyAPI.getDistricts(matchedState.id).then(setDistricts).catch(() => setDistricts([]));
+    } else {
+      setDistricts([]);
+    }
+    setCities([]);
+  }, [formData.state, states]);
+
+  // When district name matches a district, fetch cities
+  useEffect(() => {
+    if (!formData.district) {
       setCities([]);
+      return;
+    }
+    const matchedDistrict = districts.find(d => d.name === formData.district);
+    if (matchedDistrict) {
+      propertyAPI.getCities(matchedDistrict.id).then(setCities).catch(() => setCities([]));
+    } else {
+      setCities([]);
+    }
+  }, [formData.district, districts]);
+
+  const handleStateInputChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, state: value, district: '', city: '' }));
+  };
+
+  const handleStateSelect = async (state) => {
+    setFormData(prev => ({ ...prev, state: state.name, district: '', city: '' }));
+    setStateOpen(false);
+    try {
+      const districtsData = await propertyAPI.getDistricts(state.id);
+      setDistricts(districtsData);
     } catch (err) {
       console.error('Failed to fetch districts:', err);
+      setDistricts([]);
     }
+    setCities([]);
   };
 
-  const handleDistrictChange = async (e) => {
-    const districtId = e.target.value;
-    const selectedDistrict = districts.find(district => district.id.toString() === districtId);
-    setFormData({ 
-      ...formData, 
-      district: selectedDistrict ? selectedDistrict.name : '', 
-      city: '' 
-    });
+  const handleDistrictInputChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, district: value, city: '' }));
+  };
+
+  const handleDistrictSelect = async (district) => {
+    setFormData(prev => ({ ...prev, district: district.name, city: '' }));
+    setDistrictOpen(false);
     try {
-      if (districtId) {
-        const citiesData = await propertyAPI.getCities(districtId);
-        setCities(citiesData);
-      } else {
-        setCities([]);
-      }
+      const citiesData = await propertyAPI.getCities(district.id);
+      setCities(citiesData);
     } catch (err) {
       console.error('Failed to fetch cities:', err);
+      setCities([]);
     }
   };
 
-  const handleCityChange = (e) => {
-    const cityId = e.target.value;
-    const selectedCity = cities.find(city => city.id.toString() === cityId);
-    setFormData({ 
-      ...formData, 
-      city: selectedCity ? selectedCity.name : '' 
-    });
+  const handleCityInputChange = (e) => {
+    setFormData(prev => ({ ...prev, city: e.target.value }));
+  };
+
+  const handleCitySelect = (city) => {
+    setFormData(prev => ({ ...prev, city: city.name }));
+    setCityOpen(false);
   };
 
   const onDrop = useCallback(async (acceptedFiles) => {
@@ -434,65 +455,116 @@ const AddProperty = () => {
           </div>
         </div>
 
-        {/* Location Selection */}
+        {/* Location Selection - Combobox: select from list or type custom */}
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">Location</h2>
           
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-            <div>
+            {/* State combobox */}
+            <div className="relative">
               <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">State</label>
-              <select
-                name="state"
-                value={states.find(state => state.name === formData.state)?.id || ''}
-                onChange={handleStateChange}
-                className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
-                required
-              >
-                <option value="">Select a state</option>
-                {states.map((state) => (
-                  <option key={state.id} value={state.id}>
-                    {state.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.state}
+                  onChange={handleStateInputChange}
+                  onFocus={() => setStateOpen(true)}
+                  onBlur={() => setTimeout(() => setStateOpen(false), 200)}
+                  placeholder="Select or type state"
+                  className="w-full p-2 sm:p-3 pr-9 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                />
+                <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                {stateOpen && (
+                  <ul className="absolute z-20 w-full mt-1 max-h-48 overflow-auto bg-white border border-gray-300 rounded-lg shadow-lg py-1 text-sm sm:text-base">
+                    {states
+                      .filter(s => s.name.toLowerCase().includes((formData.state || '').toLowerCase()))
+                      .map((state) => (
+                        <li
+                          key={state.id}
+                          onMouseDown={(e) => { e.preventDefault(); handleStateSelect(state); }}
+                          className="px-3 py-2 cursor-pointer hover:bg-blue-50"
+                        >
+                          {state.name}
+                        </li>
+                      ))}
+                    {states.filter(s => s.name.toLowerCase().includes((formData.state || '').toLowerCase())).length === 0 && (
+                      <li className="px-3 py-2 text-gray-500">No match — type to add custom</li>
+                    )}
+                  </ul>
+                )}
+              </div>
             </div>
 
-            <div>
+            {/* District combobox */}
+            <div className="relative">
               <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">District</label>
-              <select
-                name="district"
-                value={districts.find(district => district.name === formData.district)?.id || ''}
-                onChange={handleDistrictChange}
-                className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
-                required
-                disabled={!formData.state}
-              >
-                <option value="">{formData.state ? 'Select a district' : 'Please select a state first'}</option>
-                {districts.map((district) => (
-                  <option key={district.id} value={district.id}>
-                    {district.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.district}
+                  onChange={handleDistrictInputChange}
+                  onFocus={() => formData.state && setDistrictOpen(true)}
+                  onBlur={() => setTimeout(() => setDistrictOpen(false), 200)}
+                  placeholder={formData.state ? 'Select or type district' : 'Select state first'}
+                  disabled={!formData.state}
+                  className={`w-full p-2 sm:p-3 pr-9 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${!formData.state ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                />
+                <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                {districtOpen && formData.state && (
+                  <ul className="absolute z-20 w-full mt-1 max-h-48 overflow-auto bg-white border border-gray-300 rounded-lg shadow-lg py-1 text-sm sm:text-base">
+                    {districts
+                      .filter(d => d.name.toLowerCase().includes((formData.district || '').toLowerCase()))
+                      .map((district) => (
+                        <li
+                          key={district.id}
+                          onMouseDown={(e) => { e.preventDefault(); handleDistrictSelect(district); }}
+                          className="px-3 py-2 cursor-pointer hover:bg-blue-50"
+                        >
+                          {district.name}
+                        </li>
+                      ))}
+                    {districts.filter(d => d.name.toLowerCase().includes((formData.district || '').toLowerCase())).length === 0 && (
+                      <li className="px-3 py-2 text-gray-500">No match — type to add custom</li>
+                    )}
+                  </ul>
+                )}
+              </div>
             </div>
 
-            <div>
+            {/* City combobox */}
+            <div className="relative">
               <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">City</label>
-              <select
-                name="city"
-                value={cities.find(city => city.name === formData.city)?.id || ''}
-                onChange={handleCityChange}
-                className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
-                required
-                disabled={!formData.district}
-              >
-                <option value="">{formData.district ? 'Select a city' : 'Please select a district first'}</option>
-                {cities.map((city) => (
-                  <option key={city.id} value={city.id}>
-                    {city.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.city}
+                  onChange={handleCityInputChange}
+                  onFocus={() => formData.district && setCityOpen(true)}
+                  onBlur={() => setTimeout(() => setCityOpen(false), 200)}
+                  placeholder={formData.district ? 'Select or type city' : 'Select district first'}
+                  disabled={!formData.district}
+                  className={`w-full p-2 sm:p-3 pr-9 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${!formData.district ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                />
+                <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                {cityOpen && formData.district && (
+                  <ul className="absolute z-20 w-full mt-1 max-h-48 overflow-auto bg-white border border-gray-300 rounded-lg shadow-lg py-1 text-sm sm:text-base">
+                    {cities
+                      .filter(c => c.name.toLowerCase().includes((formData.city || '').toLowerCase()))
+                      .map((city) => (
+                        <li
+                          key={city.id}
+                          onMouseDown={(e) => { e.preventDefault(); handleCitySelect(city); }}
+                          className="px-3 py-2 cursor-pointer hover:bg-blue-50"
+                        >
+                          {city.name}
+                        </li>
+                      ))}
+                    {cities.filter(c => c.name.toLowerCase().includes((formData.city || '').toLowerCase())).length === 0 && (
+                      <li className="px-3 py-2 text-gray-500">No match — type to add custom</li>
+                    )}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
 
