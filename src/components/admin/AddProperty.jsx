@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { propertyAPI } from '../../Services/api';
-import { useNavigate } from 'react-router-dom';
-import { useDropzone } from 'react-dropzone';
-import { FaUpload, FaTrash, FaChevronDown } from 'react-icons/fa';
+import React, { useState, useEffect, useCallback } from "react";
+import { propertyAPI } from "../../Services/api";
+import { useNavigate } from "react-router-dom";
+import { useDropzone } from "react-dropzone";
+import { FaUpload, FaTrash, FaChevronDown } from "react-icons/fa";
 
 const AddProperty = () => {
   const navigate = useNavigate();
@@ -13,54 +13,63 @@ const AddProperty = () => {
   const [cities, setCities] = useState([]);
   const [propertyTypes, setPropertyTypes] = useState([]);
   const [features, setFeatures] = useState([]);
-  const [nearbyPlaces, setNearbyPlaces] = useState([{ place: '', km: '' }]);
+  const [nearbyPlaces, setNearbyPlaces] = useState([{ place: "", km: "" }]);
   const [selectedImages, setSelectedImages] = useState([]);
-  const [imageError, setImageError] = useState('');
+  const [imageError, setImageError] = useState("");
   const [stateOpen, setStateOpen] = useState(false);
   const [districtOpen, setDistrictOpen] = useState(false);
   const [cityOpen, setCityOpen] = useState(false);
 
   const [formData, setFormData] = useState({
-    property_for: 'rent',
-    property_ownership: 'management',
-    contact_name: '',
-    whatsapp_number: '',
-    phone_number: '',
-    email: '',
-    state: '',
-    district: '',
-    city: '',
-    title: '',
-    price: '',
-    property_type: '',
-    latitude: '',
-    longitude: '',
-    bedrooms: '',
-    bathrooms: '',
-    area: '',
-    description: '',
+    property_for: "rent",
+    property_ownership: "management",
+    contact_name: "",
+    whatsapp_number: "",
+    phone_number: "",
+    email: "",
+    state: "",
+    district: "",
+    city: "",
+    title: "",
+    price: "",
+    property_type: "",
+    latitude: "",
+    longitude: "",
+    bedrooms: "",
+    bathrooms: "",
+    area: "",
+    description: "",
     features: [],
-    google_maps_url: '',
-    google_embedded_map_link: '',
-    youtube_video_link: '',
-    built_year: '',
-    furnishing: 'unfurnished', // Valid values: 'furnished', 'semi_furnished', 'unfurnished'
-    parking_spaces: ''
+    google_maps_url: "",
+    google_embedded_map_link: "",
+    youtube_video_link: "",
+    built_year: "",
+    furnishing: "unfurnished", // Valid values: 'furnished', 'semi_furnished', 'unfurnished'
+    parking_spaces: "",
   });
+
+  // Land types (Land for Sale, Land for Rent): area in cent, no bedrooms/bathrooms etc.
+  const isLandType = (typeName) => {
+    if (!typeName) return false;
+    const lower = typeName.toLowerCase();
+    return lower.includes("land for sale") || lower.includes("land for rent");
+  };
 
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [statesData, propertyTypesData, featuresData] = await Promise.all([
-          propertyAPI.getStates(),
-          propertyAPI.getPropertyTypes(),
-          propertyAPI.getAmenities()
-        ]);
+        const [statesData, propertyTypesData, featuresData] = await Promise.all(
+          [
+            propertyAPI.getStates(),
+            propertyAPI.getPropertyTypes(),
+            propertyAPI.getAmenities(),
+          ],
+        );
         setStates(statesData);
         setPropertyTypes(propertyTypesData);
         setFeatures(featuresData);
       } catch (err) {
-        setError('Failed to load initial data');
+        setError("Failed to load initial data");
         console.error(err);
       }
     };
@@ -70,7 +79,7 @@ const AddProperty = () => {
   useEffect(() => {
     return () => {
       // Cleanup preview URLs when component unmounts
-      selectedImages.forEach(image => {
+      selectedImages.forEach((image) => {
         if (image.preview) {
           URL.revokeObjectURL(image.preview);
         }
@@ -80,9 +89,12 @@ const AddProperty = () => {
 
   // When state name matches a state, fetch districts
   useEffect(() => {
-    const matchedState = states.find(s => s.name === formData.state);
+    const matchedState = states.find((s) => s.name === formData.state);
     if (matchedState) {
-      propertyAPI.getDistricts(matchedState.id).then(setDistricts).catch(() => setDistricts([]));
+      propertyAPI
+        .getDistricts(matchedState.id)
+        .then(setDistricts)
+        .catch(() => setDistricts([]));
     } else {
       setDistricts([]);
     }
@@ -95,9 +107,12 @@ const AddProperty = () => {
       setCities([]);
       return;
     }
-    const matchedDistrict = districts.find(d => d.name === formData.district);
+    const matchedDistrict = districts.find((d) => d.name === formData.district);
     if (matchedDistrict) {
-      propertyAPI.getCities(matchedDistrict.id).then(setCities).catch(() => setCities([]));
+      propertyAPI
+        .getCities(matchedDistrict.id)
+        .then(setCities)
+        .catch(() => setCities([]));
     } else {
       setCities([]);
     }
@@ -105,17 +120,22 @@ const AddProperty = () => {
 
   const handleStateInputChange = (e) => {
     const value = e.target.value;
-    setFormData(prev => ({ ...prev, state: value, district: '', city: '' }));
+    setFormData((prev) => ({ ...prev, state: value, district: "", city: "" }));
   };
 
   const handleStateSelect = async (state) => {
-    setFormData(prev => ({ ...prev, state: state.name, district: '', city: '' }));
+    setFormData((prev) => ({
+      ...prev,
+      state: state.name,
+      district: "",
+      city: "",
+    }));
     setStateOpen(false);
     try {
       const districtsData = await propertyAPI.getDistricts(state.id);
       setDistricts(districtsData);
     } catch (err) {
-      console.error('Failed to fetch districts:', err);
+      console.error("Failed to fetch districts:", err);
       setDistricts([]);
     }
     setCities([]);
@@ -123,27 +143,27 @@ const AddProperty = () => {
 
   const handleDistrictInputChange = (e) => {
     const value = e.target.value;
-    setFormData(prev => ({ ...prev, district: value, city: '' }));
+    setFormData((prev) => ({ ...prev, district: value, city: "" }));
   };
 
   const handleDistrictSelect = async (district) => {
-    setFormData(prev => ({ ...prev, district: district.name, city: '' }));
+    setFormData((prev) => ({ ...prev, district: district.name, city: "" }));
     setDistrictOpen(false);
     try {
       const citiesData = await propertyAPI.getCities(district.id);
       setCities(citiesData);
     } catch (err) {
-      console.error('Failed to fetch cities:', err);
+      console.error("Failed to fetch cities:", err);
       setCities([]);
     }
   };
 
   const handleCityInputChange = (e) => {
-    setFormData(prev => ({ ...prev, city: e.target.value }));
+    setFormData((prev) => ({ ...prev, city: e.target.value }));
   };
 
   const handleCitySelect = (city) => {
-    setFormData(prev => ({ ...prev, city: city.name }));
+    setFormData((prev) => ({ ...prev, city: city.name }));
     setCityOpen(false);
   };
 
@@ -166,31 +186,33 @@ const AddProperty = () => {
 
       previews.push({
         file: renamedFile,
-        preview: URL.createObjectURL(file)
+        preview: URL.createObjectURL(file),
       });
 
       return previews;
     }, []);
 
-    setSelectedImages(prev => [...prev, ...newImagePreviews]);
+    setSelectedImages((prev) => [...prev, ...newImagePreviews]);
 
     if (hasOversizedFiles) {
-      setImageError('Each image must be 500 KB or smaller. Oversized files were skipped.');
+      setImageError(
+        "Each image must be 500 KB or smaller. Oversized files were skipped.",
+      );
     } else {
-      setImageError('');
+      setImageError("");
     }
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
+      "image/*": [".jpeg", ".jpg", ".png", ".gif", ".webp"],
     },
-    multiple: true
+    multiple: true,
   });
 
   const handleImageDelete = (index) => {
-    setSelectedImages(prev => {
+    setSelectedImages((prev) => {
       const updatedImages = prev.filter((_, i) => i !== index);
       // Cleanup the preview URL
       if (prev[index]?.preview) {
@@ -207,7 +229,7 @@ const AddProperty = () => {
   };
 
   const addNearbyPlace = () => {
-    setNearbyPlaces([...nearbyPlaces, { place: '', km: '' }]);
+    setNearbyPlaces([...nearbyPlaces, { place: "", km: "" }]);
   };
 
   const removeNearbyPlace = (index) => {
@@ -223,31 +245,42 @@ const AddProperty = () => {
     try {
       // Validate required fields
       if (!formData.state || !formData.district || !formData.city) {
-        throw new Error('Please select state, district, and city');
+        throw new Error("Please select state, district, and city");
       }
-      if (!formData.google_embedded_map_link || !String(formData.google_embedded_map_link).trim()) {
-        throw new Error('Google Embedded Map Link is required');
+      if (
+        !formData.google_embedded_map_link ||
+        !String(formData.google_embedded_map_link).trim()
+      ) {
+        throw new Error("Google Embedded Map Link is required");
       }
-      const lat = formData.latitude != null && String(formData.latitude).trim() !== '' ? parseFloat(formData.latitude) : NaN;
-      const lng = formData.longitude != null && String(formData.longitude).trim() !== '' ? parseFloat(formData.longitude) : NaN;
+      const lat =
+        formData.latitude != null && String(formData.latitude).trim() !== ""
+          ? parseFloat(formData.latitude)
+          : NaN;
+      const lng =
+        formData.longitude != null && String(formData.longitude).trim() !== ""
+          ? parseFloat(formData.longitude)
+          : NaN;
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        throw new Error('Latitude and longitude are required and must be valid numbers');
+        throw new Error(
+          "Latitude and longitude are required and must be valid numbers",
+        );
       }
 
       const formDataToSend = new FormData();
-      
-      console.log('Current furnishing value:', formData.furnishing);
+
+      console.log("Current furnishing value:", formData.furnishing);
       // Append all form fields
-      Object.keys(formData).forEach(key => {
-        if (key === 'features') {
+      Object.keys(formData).forEach((key) => {
+        if (key === "features") {
           // Handle features array
-          formData[key].forEach(feature => {
-            formDataToSend.append('features', feature);
+          formData[key].forEach((feature) => {
+            formDataToSend.append("features", feature);
           });
-        } else if (formData[key] !== '') {
+        } else if (formData[key] !== "") {
           // Only append non-empty values
           // Ensure furnishing is sent as a plain string
-          if (key === 'furnishing') {
+          if (key === "furnishing") {
             formDataToSend.append(key, formData[key].toString().trim());
           } else {
             formDataToSend.append(key, formData[key]);
@@ -255,35 +288,38 @@ const AddProperty = () => {
         }
       });
 
-      // Set area_unit: 'cent' for Land for Sale, 'sqft' for other property types
+      // Set area_unit: 'cent' for Land for Sale/Rent, 'sqft' for other property types
       const selectedPropertyType = propertyTypes.find(
-        type => type.id.toString() === formData.property_type
+        (type) => type.id.toString() === formData.property_type,
       );
-      const isLandForSale = selectedPropertyType?.name?.toLowerCase().includes('land for sale');
-      formDataToSend.append('area_unit', isLandForSale ? 'cent' : 'sqft');
+      const isLand = isLandType(selectedPropertyType?.name);
+      formDataToSend.append("area_unit", isLand ? "cent" : "sqft");
 
       // Filter out empty nearby places and format as single string
-      const validNearbyPlaces = nearbyPlaces.filter(place => 
-        place.place.trim() !== '' && place.km !== '' && !isNaN(parseFloat(place.km))
+      const validNearbyPlaces = nearbyPlaces.filter(
+        (place) =>
+          place.place.trim() !== "" &&
+          place.km !== "" &&
+          !isNaN(parseFloat(place.km)),
       );
-      
+
       // Format nearby places as JSON array
       if (validNearbyPlaces.length > 0) {
-        const formattedPlaces = validNearbyPlaces.map(place => ({
+        const formattedPlaces = validNearbyPlaces.map((place) => ({
           place: place.place.trim(),
-          distance: parseFloat(place.km).toFixed(1)
+          distance: parseFloat(place.km).toFixed(1),
         }));
-        formDataToSend.append('nearby_places', JSON.stringify(formattedPlaces));
+        formDataToSend.append("nearby_places", JSON.stringify(formattedPlaces));
       }
 
       // Append images
-      selectedImages.forEach(image => {
+      selectedImages.forEach((image) => {
         if (image.file) {
-          formDataToSend.append('uploaded_images', image.file);
+          formDataToSend.append("uploaded_images", image.file);
         }
       });
 
-      console.log('Form data being submitted:');
+      console.log("Form data being submitted:");
       for (let [key, value] of formDataToSend.entries()) {
         if (value instanceof File) {
           console.log(`${key}: File - ${value.name}`);
@@ -293,10 +329,10 @@ const AddProperty = () => {
       }
 
       await propertyAPI.createProperty(formDataToSend);
-      navigate('/admin/properties');
+      navigate("/admin/properties");
     } catch (err) {
-      setError(err.message || 'Failed to create property');
-      console.error('Error creating property:', err);
+      setError(err.message || "Failed to create property");
+      console.error("Error creating property:", err);
     } finally {
       setLoading(false);
     }
@@ -305,21 +341,20 @@ const AddProperty = () => {
   const handlePriceChange = (e) => {
     const value = e.target.value;
     // Allow only numbers (digits and at most one decimal point); backspace gives shorter string
-    const sanitized = value.replace(/[^\d.]/g, '');
-    const parts = sanitized.split('.');
-    const numericOnly = parts.length > 2
-      ? parts[0] + '.' + parts.slice(1).join('')
-      : sanitized;
-    setFormData(prev => ({ ...prev, price: numericOnly }));
+    const sanitized = value.replace(/[^\d.]/g, "");
+    const parts = sanitized.split(".");
+    const numericOnly =
+      parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized;
+    setFormData((prev) => ({ ...prev, price: numericOnly }));
   };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    if (type === 'checkbox') {
+    if (type === "checkbox") {
       const featureId = parseInt(value);
       const updatedFeatures = checked
         ? [...formData.features, featureId]
-        : formData.features.filter(id => id !== featureId);
+        : formData.features.filter((id) => id !== featureId);
       setFormData({ ...formData, features: updatedFeatures });
     } else {
       setFormData({ ...formData, [name]: value });
@@ -328,49 +363,73 @@ const AddProperty = () => {
 
   const handlePropertyTypeChange = (e) => {
     const { value } = e.target;
-    const nextPropertyType = propertyTypes.find(type => type.id.toString() === value);
-    const nextIsLandForSale =
-      nextPropertyType && nextPropertyType.name.toLowerCase().includes('land for sale');
+    const nextPropertyType = propertyTypes.find(
+      (type) => type.id.toString() === value,
+    );
+    const nextIsLand = isLandType(nextPropertyType?.name);
 
-    setFormData(prevData => {
+    setFormData((prevData) => {
       const prevPropertyType = propertyTypes.find(
-        type => type.id.toString() === prevData.property_type
+        (type) => type.id.toString() === prevData.property_type,
       );
-      const prevIsLandForSale =
-        prevPropertyType && prevPropertyType.name.toLowerCase().includes('land for sale');
+      const prevIsLand = isLandType(prevPropertyType?.name);
 
       return {
         ...prevData,
         property_type: value,
-        bedrooms: nextIsLandForSale ? '0' : (prevIsLandForSale ? '' : prevData.bedrooms),
-        bathrooms: nextIsLandForSale ? '0' : (prevIsLandForSale ? '' : prevData.bathrooms),
-        furnishing: nextIsLandForSale
-          ? 'unfurnished'
-          : (prevIsLandForSale ? 'unfurnished' : prevData.furnishing || 'unfurnished'),
-        parking_spaces: nextIsLandForSale
-          ? '0'
-          : (prevIsLandForSale ? '' : prevData.parking_spaces),
-        built_year: nextIsLandForSale ? '1990' : (prevIsLandForSale ? '' : prevData.built_year)
+        bedrooms: nextIsLand
+          ? "0"
+          : prevIsLand
+            ? ""
+            : prevData.bedrooms,
+        bathrooms: nextIsLand
+          ? "0"
+          : prevIsLand
+            ? ""
+            : prevData.bathrooms,
+        furnishing: nextIsLand
+          ? "unfurnished"
+          : prevIsLand
+            ? "unfurnished"
+            : prevData.furnishing || "unfurnished",
+        parking_spaces: nextIsLand
+          ? "0"
+          : prevIsLand
+            ? ""
+            : prevData.parking_spaces,
+        built_year: nextIsLand
+          ? "1990"
+          : prevIsLand
+            ? ""
+            : prevData.built_year,
       };
     });
   };
 
-  // Check if current property type is Land for Sale
-  const selectedPropertyType = propertyTypes.find(type => type.id.toString() === formData.property_type);
-  const isLandForSale = selectedPropertyType && selectedPropertyType.name.toLowerCase().includes('land for sale');
+  // Check if current property type is Land for Sale or Land for Rent
+  const selectedPropertyType = propertyTypes.find(
+    (type) => type.id.toString() === formData.property_type,
+  );
+  const isLandForSale = selectedPropertyType && isLandType(selectedPropertyType.name);
 
   return (
     <div className="w-full max-w-4xl mx-auto p-3 sm:p-6">
-      <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6">Add New Property</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6">
+        Add New Property
+      </h1>
 
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
         {/* Basic Information */}
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">Basic Information</h2>
-          
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
+            Basic Information
+          </h2>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <div>
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Property For</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                Property For
+              </label>
               <select
                 name="property_for"
                 value={formData.property_for}
@@ -385,7 +444,9 @@ const AddProperty = () => {
             </div>
 
             <div>
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Property Ownership</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                Property Ownership
+              </label>
               <select
                 name="property_ownership"
                 value={formData.property_ownership}
@@ -403,11 +464,15 @@ const AddProperty = () => {
 
         {/* Contact Information */}
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">Contact Information</h2>
-          
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
+            Contact Information
+          </h2>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <div>
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Contact Name</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                Contact Name
+              </label>
               <input
                 type="text"
                 name="contact_name"
@@ -419,7 +484,9 @@ const AddProperty = () => {
             </div>
 
             <div>
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Email</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                Email
+              </label>
               <input
                 type="email"
                 name="email"
@@ -430,7 +497,9 @@ const AddProperty = () => {
             </div>
 
             <div>
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">WhatsApp Number</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                WhatsApp Number
+              </label>
               <input
                 type="tel"
                 name="whatsapp_number"
@@ -442,7 +511,9 @@ const AddProperty = () => {
             </div>
 
             <div>
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Phone Number</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                Phone Number
+              </label>
               <input
                 type="tel"
                 name="phone_number"
@@ -457,12 +528,16 @@ const AddProperty = () => {
 
         {/* Location Selection - Combobox: select from list or type custom */}
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">Location</h2>
-          
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
+            Location
+          </h2>
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
             {/* State combobox */}
             <div className="relative">
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">State</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                State
+              </label>
               <div className="relative">
                 <input
                   type="text"
@@ -477,18 +552,31 @@ const AddProperty = () => {
                 {stateOpen && (
                   <ul className="absolute z-20 w-full mt-1 max-h-48 overflow-auto bg-white border border-gray-300 rounded-lg shadow-lg py-1 text-sm sm:text-base">
                     {states
-                      .filter(s => s.name.toLowerCase().includes((formData.state || '').toLowerCase()))
+                      .filter((s) =>
+                        s.name
+                          .toLowerCase()
+                          .includes((formData.state || "").toLowerCase()),
+                      )
                       .map((state) => (
                         <li
                           key={state.id}
-                          onMouseDown={(e) => { e.preventDefault(); handleStateSelect(state); }}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleStateSelect(state);
+                          }}
                           className="px-3 py-2 cursor-pointer hover:bg-blue-50"
                         >
                           {state.name}
                         </li>
                       ))}
-                    {states.filter(s => s.name.toLowerCase().includes((formData.state || '').toLowerCase())).length === 0 && (
-                      <li className="px-3 py-2 text-gray-500">No match — type to add custom</li>
+                    {states.filter((s) =>
+                      s.name
+                        .toLowerCase()
+                        .includes((formData.state || "").toLowerCase()),
+                    ).length === 0 && (
+                      <li className="px-3 py-2 text-gray-500">
+                        No match — type to add custom
+                      </li>
                     )}
                   </ul>
                 )}
@@ -497,7 +585,9 @@ const AddProperty = () => {
 
             {/* District combobox */}
             <div className="relative">
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">District</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                District
+              </label>
               <div className="relative">
                 <input
                   type="text"
@@ -505,26 +595,43 @@ const AddProperty = () => {
                   onChange={handleDistrictInputChange}
                   onFocus={() => formData.state && setDistrictOpen(true)}
                   onBlur={() => setTimeout(() => setDistrictOpen(false), 200)}
-                  placeholder={formData.state ? 'Select or type district' : 'Select state first'}
+                  placeholder={
+                    formData.state
+                      ? "Select or type district"
+                      : "Select state first"
+                  }
                   disabled={!formData.state}
-                  className={`w-full p-2 sm:p-3 pr-9 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${!formData.state ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                  className={`w-full p-2 sm:p-3 pr-9 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${!formData.state ? "bg-gray-100 cursor-not-allowed" : ""}`}
                 />
                 <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 {districtOpen && formData.state && (
                   <ul className="absolute z-20 w-full mt-1 max-h-48 overflow-auto bg-white border border-gray-300 rounded-lg shadow-lg py-1 text-sm sm:text-base">
                     {districts
-                      .filter(d => d.name.toLowerCase().includes((formData.district || '').toLowerCase()))
+                      .filter((d) =>
+                        d.name
+                          .toLowerCase()
+                          .includes((formData.district || "").toLowerCase()),
+                      )
                       .map((district) => (
                         <li
                           key={district.id}
-                          onMouseDown={(e) => { e.preventDefault(); handleDistrictSelect(district); }}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleDistrictSelect(district);
+                          }}
                           className="px-3 py-2 cursor-pointer hover:bg-blue-50"
                         >
                           {district.name}
                         </li>
                       ))}
-                    {districts.filter(d => d.name.toLowerCase().includes((formData.district || '').toLowerCase())).length === 0 && (
-                      <li className="px-3 py-2 text-gray-500">No match — type to add custom</li>
+                    {districts.filter((d) =>
+                      d.name
+                        .toLowerCase()
+                        .includes((formData.district || "").toLowerCase()),
+                    ).length === 0 && (
+                      <li className="px-3 py-2 text-gray-500">
+                        No match — type to add custom
+                      </li>
                     )}
                   </ul>
                 )}
@@ -533,7 +640,9 @@ const AddProperty = () => {
 
             {/* City combobox */}
             <div className="relative">
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">City</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                City
+              </label>
               <div className="relative">
                 <input
                   type="text"
@@ -541,26 +650,43 @@ const AddProperty = () => {
                   onChange={handleCityInputChange}
                   onFocus={() => formData.district && setCityOpen(true)}
                   onBlur={() => setTimeout(() => setCityOpen(false), 200)}
-                  placeholder={formData.district ? 'Select or type city' : 'Select district first'}
+                  placeholder={
+                    formData.district
+                      ? "Select or type city"
+                      : "Select district first"
+                  }
                   disabled={!formData.district}
-                  className={`w-full p-2 sm:p-3 pr-9 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${!formData.district ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                  className={`w-full p-2 sm:p-3 pr-9 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${!formData.district ? "bg-gray-100 cursor-not-allowed" : ""}`}
                 />
                 <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 {cityOpen && formData.district && (
                   <ul className="absolute z-20 w-full mt-1 max-h-48 overflow-auto bg-white border border-gray-300 rounded-lg shadow-lg py-1 text-sm sm:text-base">
                     {cities
-                      .filter(c => c.name.toLowerCase().includes((formData.city || '').toLowerCase()))
+                      .filter((c) =>
+                        c.name
+                          .toLowerCase()
+                          .includes((formData.city || "").toLowerCase()),
+                      )
                       .map((city) => (
                         <li
                           key={city.id}
-                          onMouseDown={(e) => { e.preventDefault(); handleCitySelect(city); }}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleCitySelect(city);
+                          }}
                           className="px-3 py-2 cursor-pointer hover:bg-blue-50"
                         >
                           {city.name}
                         </li>
                       ))}
-                    {cities.filter(c => c.name.toLowerCase().includes((formData.city || '').toLowerCase())).length === 0 && (
-                      <li className="px-3 py-2 text-gray-500">No match — type to add custom</li>
+                    {cities.filter((c) =>
+                      c.name
+                        .toLowerCase()
+                        .includes((formData.city || "").toLowerCase()),
+                    ).length === 0 && (
+                      <li className="px-3 py-2 text-gray-500">
+                        No match — type to add custom
+                      </li>
                     )}
                   </ul>
                 )}
@@ -602,11 +728,15 @@ const AddProperty = () => {
 
         {/* Property Details */}
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">Property Details</h2>
-          
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
+            Property Details
+          </h2>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <div>
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Title</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                Title
+              </label>
               <input
                 type="text"
                 name="title"
@@ -618,7 +748,9 @@ const AddProperty = () => {
             </div>
 
             <div>
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Price</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                Price
+              </label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -632,7 +764,9 @@ const AddProperty = () => {
             </div>
 
             <div>
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Property Type</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                Property Type
+              </label>
               <select
                 name="property_type"
                 value={formData.property_type}
@@ -651,7 +785,7 @@ const AddProperty = () => {
 
             <div>
               <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
-                {isLandForSale ? 'Area (cent)' : 'Area (sq.ft)'}
+                {isLandForSale ? "Area (cent)" : "Area (sq.ft)"}
               </label>
               <input
                 type="number"
@@ -664,7 +798,9 @@ const AddProperty = () => {
             </div>
 
             <div>
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Bedrooms</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                Bedrooms
+              </label>
               <input
                 type="number"
                 name="bedrooms"
@@ -672,14 +808,16 @@ const AddProperty = () => {
                 onChange={handleInputChange}
                 disabled={isLandForSale}
                 className={`w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${
-                  isLandForSale ? 'bg-gray-100 cursor-not-allowed' : ''
+                  isLandForSale ? "bg-gray-100 cursor-not-allowed" : ""
                 }`}
                 required
               />
             </div>
 
             <div>
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Bathrooms</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                Bathrooms
+              </label>
               <input
                 type="number"
                 name="bathrooms"
@@ -687,7 +825,7 @@ const AddProperty = () => {
                 onChange={handleInputChange}
                 disabled={isLandForSale}
                 className={`w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${
-                  isLandForSale ? 'bg-gray-100 cursor-not-allowed' : ''
+                  isLandForSale ? "bg-gray-100 cursor-not-allowed" : ""
                 }`}
                 required
               />
@@ -696,7 +834,9 @@ const AddProperty = () => {
 
           {/* Property Description */}
           <div className="mt-4 sm:mt-6">
-            <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Property Description</label>
+            <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+              Property Description
+            </label>
             <textarea
               name="description"
               value={formData.description}
@@ -710,11 +850,15 @@ const AddProperty = () => {
 
         {/* Additional Details */}
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">Additional Details</h2>
-          
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
+            Additional Details
+          </h2>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <div>
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">YouTube Video Link</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                YouTube Video Link
+              </label>
               <input
                 type="url"
                 name="youtube_video_link"
@@ -726,7 +870,9 @@ const AddProperty = () => {
             </div>
 
             <div>
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Built Year</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                Built Year
+              </label>
               <input
                 type="number"
                 name="built_year"
@@ -734,7 +880,7 @@ const AddProperty = () => {
                 onChange={handleInputChange}
                 disabled={isLandForSale}
                 className={`w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${
-                  isLandForSale ? 'bg-gray-100 cursor-not-allowed' : ''
+                  isLandForSale ? "bg-gray-100 cursor-not-allowed" : ""
                 }`}
                 min="1900"
                 max={new Date().getFullYear()}
@@ -742,14 +888,16 @@ const AddProperty = () => {
             </div>
 
             <div>
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Furnishing</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                Furnishing
+              </label>
               <select
                 name="furnishing"
                 value={formData.furnishing}
                 onChange={handleInputChange}
                 disabled={isLandForSale}
                 className={`w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${
-                  isLandForSale ? 'bg-gray-100 cursor-not-allowed' : ''
+                  isLandForSale ? "bg-gray-100 cursor-not-allowed" : ""
                 }`}
               >
                 <option value="unfurnished">Unfurnished</option>
@@ -759,7 +907,9 @@ const AddProperty = () => {
             </div>
 
             <div>
-              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Parking Spaces</label>
+              <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+                Parking Spaces
+              </label>
               <input
                 type="number"
                 name="parking_spaces"
@@ -767,7 +917,7 @@ const AddProperty = () => {
                 onChange={handleInputChange}
                 disabled={isLandForSale}
                 className={`w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${
-                  isLandForSale ? 'bg-gray-100 cursor-not-allowed' : ''
+                  isLandForSale ? "bg-gray-100 cursor-not-allowed" : ""
                 }`}
                 min="0"
               />
@@ -775,7 +925,9 @@ const AddProperty = () => {
           </div>
 
           <div className="mt-4 sm:mt-6">
-            <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Google Map URL</label>
+            <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+              Google Map URL
+            </label>
             <input
               type="url"
               name="google_maps_url"
@@ -786,7 +938,9 @@ const AddProperty = () => {
             />
           </div>
           <div className="mt-4 sm:mt-6">
-            <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">Google Embedded Map Link <span className="text-red-500">*</span></label>
+            <label className="block mb-2 text-sm sm:text-base font-medium text-gray-700">
+              Google Embedded Map Link <span className="text-red-500">*</span>
+            </label>
             <textarea
               name="google_embedded_map_link"
               value={formData.google_embedded_map_link}
@@ -801,22 +955,31 @@ const AddProperty = () => {
 
         {/* Nearby Places */}
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">Nearby Places</h2>
-          
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
+            Nearby Places
+          </h2>
+
           <div className="space-y-3 sm:space-y-4">
             {nearbyPlaces.map((place, index) => (
-              <div key={index} className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <div
+                key={index}
+                className="flex flex-col sm:flex-row gap-3 sm:gap-4"
+              >
                 <input
                   type="text"
                   value={place.name}
-                  onChange={(e) => handleNearbyPlaceChange(index, 'name', e.target.value)}
+                  onChange={(e) =>
+                    handleNearbyPlaceChange(index, "name", e.target.value)
+                  }
                   className="flex-1 p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                   placeholder="Place name (e.g., International Airport)"
                 />
                 <input
                   type="number"
                   value={place.distance}
-                  onChange={(e) => handleNearbyPlaceChange(index, 'distance', e.target.value)}
+                  onChange={(e) =>
+                    handleNearbyPlaceChange(index, "distance", e.target.value)
+                  }
                   className="w-full sm:w-32 p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                   placeholder="Distance (km)"
                   step="0.1"
@@ -830,7 +993,7 @@ const AddProperty = () => {
                 </button>
               </div>
             ))}
-            
+
             <button
               type="button"
               onClick={addNearbyPlace}
@@ -843,8 +1006,10 @@ const AddProperty = () => {
 
         {/* Property Images */}
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">Property Images</h2>
-          
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
+            Property Images
+          </h2>
+
           {/* Image Preview Grid */}
           {selectedImages.length > 0 && (
             <div className="mb-4">
@@ -868,7 +1033,7 @@ const AddProperty = () => {
               </div>
             </div>
           )}
-          
+
           {/* Drag and Drop Upload Area */}
           <div
             {...getRootProps()}
@@ -877,15 +1042,15 @@ const AddProperty = () => {
             <div className="flex flex-col items-center space-y-2">
               <FaUpload className="w-8 h-8 text-gray-400" />
               <span className="text-sm text-gray-500">
-                {isDragActive ? "Drop the files here" : "Drag & drop files or click to select"}
+                {isDragActive
+                  ? "Drop the files here"
+                  : "Drag & drop files or click to select"}
               </span>
             </div>
             <input {...getInputProps()} />
           </div>
           {imageError && (
-            <p className="mt-2 text-sm text-red-600">
-              {imageError}
-            </p>
+            <p className="mt-2 text-sm text-red-600">{imageError}</p>
           )}
         </div>
 
@@ -900,7 +1065,7 @@ const AddProperty = () => {
             type="submit"
             disabled={loading}
             className={`px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all text-sm sm:text-base font-medium flex items-center justify-center gap-2 ${
-              loading ? 'opacity-50 cursor-not-allowed' : ''
+              loading ? "opacity-50 cursor-not-allowed" : ""
             }`}
           >
             {loading ? (
@@ -930,7 +1095,7 @@ const AddProperty = () => {
                 <span>Creating Property...</span>
               </>
             ) : (
-              'Create Property'
+              "Create Property"
             )}
           </button>
         </div>
