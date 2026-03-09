@@ -629,6 +629,15 @@ export const propertyAPI = {
       });
       return response.data;
     } catch (error) {
+      // Detailed error logging (runs in all environments including live)
+      console.error("[POST /properties/properties/] error response:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        headers: error.response?.headers,
+        data: error.response?.data,
+        fullError: error,
+        message: error.message,
+      });
       if (error.response?.data) {
         const errorData = error.response.data;
         if (typeof errorData === "object") {
