@@ -49,6 +49,13 @@ function EditProperty() {
     images: []
   });
 
+  // Land types (Land for Sale, Land for Rent): area in cent, no bedrooms/bathrooms etc.
+  const isLandType = (typeName) => {
+    if (!typeName) return false;
+    const lower = typeName.toLowerCase();
+    return lower.includes('land for sale') || lower.includes('land for rent');
+  };
+
   useEffect(() => {
     fetchPropertyTypes();
     fetchFeatures();
@@ -238,7 +245,7 @@ function EditProperty() {
   const handlePropertyTypeChange = (e) => {
     const { value } = e.target;
     const selectedPropertyType = propertyTypes.find(type => type.id.toString() === value);
-    const isLandForSaleType = selectedPropertyType && selectedPropertyType.name.toLowerCase().includes('land for sale');
+    const isLand = isLandType(selectedPropertyType?.name);
     
     setFormData(prev => ({
       ...prev,
@@ -247,12 +254,12 @@ function EditProperty() {
         id: value,
         name: selectedPropertyType ? selectedPropertyType.name : ''
       },
-      // Clear bedrooms and bathrooms for Land for Sale only
-      bedrooms: isLandForSaleType ? '' : prev.bedrooms,
-      bathrooms: isLandForSaleType ? '' : prev.bathrooms,
-      furnishing: isLandForSaleType ? '' : prev.furnishing,
-      parking_spaces: isLandForSaleType ? '' : prev.parking_spaces,
-      built_year: isLandForSaleType ? '' : prev.built_year
+      // Clear bedrooms and bathrooms for Land for Sale/Rent only
+      bedrooms: isLand ? '' : prev.bedrooms,
+      bathrooms: isLand ? '' : prev.bathrooms,
+      furnishing: isLand ? '' : prev.furnishing,
+      parking_spaces: isLand ? '' : prev.parking_spaces,
+      built_year: isLand ? '' : prev.built_year
     }));
   };
 
@@ -427,9 +434,9 @@ function EditProperty() {
         formDataToSend.append('property_type', formData.property_type_details.id);
       }
 
-      // Add area_unit: 'cent' for Land for Sale, 'sqft' for other property types
-      const isLandForSale = formData.property_type_details?.name?.toLowerCase().includes('land for sale');
-      formDataToSend.append('area_unit', isLandForSale ? 'cent' : 'sqft');
+      // Add area_unit: 'cent' for Land for Sale/Rent, 'sqft' for other property types
+      const isLand = isLandType(formData.property_type_details?.name);
+      formDataToSend.append('area_unit', isLand ? 'cent' : 'sqft');
 
       // Add features as an array
       if (formData.feature_details && formData.feature_details.length > 0) {
@@ -532,9 +539,9 @@ function EditProperty() {
     );
   }
 
-  // Check if current property type is Land for Sale (area unit = cent)
+  // Check if current property type is Land for Sale or Land for Rent (area unit = cent)
   const selectedPropertyType = propertyTypes.find(type => type.id.toString() === formData.property_type_details?.id?.toString());
-  const isLandForSale = selectedPropertyType && selectedPropertyType.name.toLowerCase().includes('land for sale');
+  const isLandForSale = selectedPropertyType && isLandType(selectedPropertyType.name);
 
   return (
     <div className="bg-gray-50">
