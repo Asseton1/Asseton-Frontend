@@ -588,7 +588,7 @@ function ContactUs() {
                   },
                   {
                     city: "Kannur",
-                    address: "Absam Complex 1st Floor South Bazaar Kannur 670002 Kerala, India",
+                    address: "Address: Musthafa center, 4 th floor ,near LIC office, Talap, Kannur, Kerala 670002",
                     phone: "+91 8590847916",
                     email: "asseton@asseton.in"
                   },
