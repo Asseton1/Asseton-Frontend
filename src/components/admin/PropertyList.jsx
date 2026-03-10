@@ -172,9 +172,34 @@ function PropertyList() {
     setDeleteModal({ isOpen: false, property: null });
   };
 
-  // Display price as-is
-  const formatPrice = (price) => {
-    return `₹${price}`;
+  // Display price using Lakhs / Crores for consistency with frontend
+  const formatPrice = (rawPrice) => {
+    if (rawPrice == null || rawPrice === '') return '₹0';
+
+    const numeric = Number(
+      String(rawPrice)
+        .toString()
+        .replace(/[^\d.]/g, ''),
+    );
+
+    if (!numeric || Number.isNaN(numeric)) return `₹${rawPrice}`;
+
+    // 1 Crore = 1,00,00,000
+    if (numeric >= 10000000) {
+      const crores = numeric / 10000000;
+      const formatted = crores.toFixed(3).replace(/\.?0+$/, '');
+      return `₹${formatted} Cr`;
+    }
+
+    // 1 Lakh = 1,00,000
+    if (numeric >= 100000) {
+      const lakhs = numeric / 100000;
+      const formatted = lakhs.toFixed(3).replace(/\.?0+$/, '');
+      return `₹${formatted} Lakh`;
+    }
+
+    // For amounts below 1 Lakh, show standard Indian number format
+    return `₹${numeric.toLocaleString('en-IN')}`;
   };
 
   // Ensure properties is always an array before rendering
