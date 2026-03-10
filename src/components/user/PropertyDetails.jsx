@@ -169,6 +169,36 @@ const PropertyDetails = () => {
     return 'Unknown';
   };
 
+  // Helper: format price into Lakhs / Crores for display
+  const formatPrice = (rawPrice) => {
+    if (rawPrice == null || rawPrice === '') return '0';
+
+    const numeric = Number(
+      String(rawPrice)
+        .toString()
+        .replace(/[^\d.]/g, '')
+    );
+
+    if (!numeric || Number.isNaN(numeric)) return String(rawPrice);
+
+    // 1 Crore = 1,00,00,000
+    if (numeric >= 10000000) {
+      const crores = numeric / 10000000;
+      const formatted = crores.toFixed(3).replace(/\.?0+$/, '');
+      return `${formatted} Cr`;
+    }
+
+    // 1 Lakh = 1,00,000
+    if (numeric >= 100000) {
+      const lakhs = numeric / 100000;
+      const formatted = lakhs.toFixed(3).replace(/\.?0+$/, '');
+      return `${formatted} Lakh`;
+    }
+
+    // For amounts below 1 Lakh, show standard Indian number format
+    return numeric.toLocaleString('en-IN');
+  };
+
   // Helper function to check if property is Land type
   const isLandProperty = (property) => {
     const propertyType = getPropertyType(property).toLowerCase();
@@ -343,10 +373,12 @@ const PropertyDetails = () => {
                 </div>
                 
                 <div className="w-full md:w-auto flex flex-col items-start md:items-end">
-                                     <div className="text-2xl sm:text-3xl font-bold text-green-600 mb-3 w-full md:w-auto text-left md:text-right">₹ {getPropertyValue(property, 'price', '0')}</div>
+                  <div className="text-2xl sm:text-3xl font-bold text-green-600 mb-3 w-full md:w-auto text-left md:text-right">
+                    ₹ {formatPrice(getPropertyValue(property, 'price', '0'))}
+                  </div>
                   <button 
                     onClick={() => {
-                                             const message = `Hi, I'm interested in:\n\n*${getPropertyValue(property, 'title', 'Property')}*\nLocation: ${getPropertyValue(property, 'location.city', 'N/A')}, ${getPropertyValue(property, 'location.district', 'N/A')}, ${getPropertyValue(property, 'location.state', 'N/A')}\nPrice: ₹${getPropertyValue(property, 'price', '0')}\n\nPlease provide more information about this property.`;
+                      const message = `Hi, I'm interested in:\n\n*${getPropertyValue(property, 'title', 'Property')}*\nLocation: ${getPropertyValue(property, 'location.city', 'N/A')}, ${getPropertyValue(property, 'location.district', 'N/A')}, ${getPropertyValue(property, 'location.state', 'N/A')}\nPrice: ₹${formatPrice(getPropertyValue(property, 'price', '0'))}\n\nPlease provide more information about this property.`;
                        const whatsappUrl = `https://wa.me/${getPropertyValue(property, 'whatsapp_number', '').replace(/\D/g,'')}?text=${encodeURIComponent(message)}`;
                       window.open(whatsappUrl, '_blank');
                     }}
