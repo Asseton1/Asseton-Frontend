@@ -1074,6 +1074,36 @@ const PropertyListing = () => {
     return type === "land" || type.includes("land");
   };
 
+  // Helper: format price into Lakhs / Crores for display
+  const formatPrice = (rawPrice) => {
+    if (rawPrice == null || rawPrice === "") return "0";
+
+    const numeric = Number(
+      String(rawPrice)
+        .toString()
+        .replace(/[^\d.]/g, ""),
+    );
+
+    if (!numeric || Number.isNaN(numeric)) return String(rawPrice);
+
+    // 1 Crore = 1,00,00,000
+    if (numeric >= 10000000) {
+      const crores = numeric / 10000000;
+      const formatted = crores.toFixed(3).replace(/\.?0+$/, "");
+      return `${formatted} Cr`;
+    }
+
+    // 1 Lakh = 1,00,000
+    if (numeric >= 100000) {
+      const lakhs = numeric / 100000;
+      const formatted = lakhs.toFixed(3).replace(/\.?0+$/, "");
+      return `${formatted} Lakh`;
+    }
+
+    // For amounts below 1 Lakh, show standard Indian number format
+    return numeric.toLocaleString("en-IN");
+  };
+
   // Helper function to format area with correct unit (uses API area_unit: 'cent' or 'sqft')
   const formatAreaWithUnit = (property) => {
     const area = property?.area;
@@ -3296,7 +3326,7 @@ const PropertyListing = () => {
                           {/* Price overlay on mobile */}
                           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 lg:hidden">
                             <h3 className="text-xl font-bold text-white">
-                              ₹ {property.price}
+                              ₹ {formatPrice(property.price)}
                               {property.property_for === "rent" && (
                                 <span className="text-sm font-normal text-gray-200 ml-2">
                                   /month
@@ -3310,7 +3340,7 @@ const PropertyListing = () => {
                             {/* Price for desktop */}
                             <div className="hidden lg:flex justify-between items-start mb-2">
                               <h3 className="text-xl lg:text-2xl font-bold text-gray-800">
-                                ₹ {property.price}
+                                ₹ {formatPrice(property.price)}
                                 {property.property_for === "rent" && (
                                   <span className="text-sm font-normal text-gray-500 ml-2">
                                     /month
@@ -3483,7 +3513,7 @@ const PropertyListing = () => {
 
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
                           <h3 className="text-xl font-bold text-white">
-                            ₹ {parseFloat(property.price).toLocaleString()}
+                            ₹ {formatPrice(property.price)}
                             {property.property_for === "rent" && (
                               <span className="text-sm font-normal text-gray-200 ml-2">
                                 /month
