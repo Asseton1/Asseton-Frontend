@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './Sidebar';
 import { propertyAPI } from '../../Services/api';
 import { format } from 'date-fns';
@@ -40,11 +40,7 @@ const Dashboard = () => {
     return unit === 'cent' ? `${area} cent` : `${area} sq.ft`;
   };
 
-  useEffect(() => {
-    fetchRecentProperties();
-  }, []);
-
-  const fetchRecentProperties = async () => {
+  const fetchRecentProperties = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await propertyAPI.getAllProperties();
@@ -96,16 +92,45 @@ const Dashboard = () => {
       setError(null);
       
     } catch (err) {
-      setError('Failed to fetch properties. Please try again.');
+      setError(err?.message || 'Failed to fetch properties. Please try again.');
       setRecentProperties([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  // Function to display price as-is
-  const formatPrice = (price) => {
-    return `₹${price}`;
+  useEffect(() => {
+    fetchRecentProperties();
+  }, [fetchRecentProperties]);
+
+  // Function to display price using Lakhs / Crores for consistency with frontend
+  const formatPrice = (rawPrice) => {
+    if (rawPrice == null || rawPrice === '') return '₹0';
+
+    const numeric = Number(
+      String(rawPrice)
+        .toString()
+        .replace(/[^\d.]/g, ''),
+    );
+
+    if (!numeric || Number.isNaN(numeric)) return `₹${rawPrice}`;
+
+    // 1 Crore = 1,00,00,000
+    if (numeric >= 10000000) {
+      const crores = numeric / 10000000;
+      const formatted = crores.toFixed(3).replace(/\.?0+$/, '');
+      return `₹${formatted} Cr`;
+    }
+
+    // 1 Lakh = 1,00,000
+    if (numeric >= 100000) {
+      const lakhs = numeric / 100000;
+      const formatted = lakhs.toFixed(3).replace(/\.?0+$/, '');
+      return `₹${formatted} Lakh`;
+    }
+
+    // For amounts below 1 Lakh, show standard Indian number format
+    return `₹${numeric.toLocaleString('en-IN')}`;
   };
 
   return (
