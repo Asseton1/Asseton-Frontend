@@ -953,6 +953,36 @@ const AddProperty = () => {
           </div>
         </div>
 
+        {/* Features */}
+        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
+            Features
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+            {features.map((feature) => (
+              <div key={feature.id} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="features"
+                  id={`feature-${feature.id}`}
+                  value={feature.id}
+                  checked={formData.features.some(
+                    (id) => Number(id) === Number(feature.id),
+                  )}
+                  onChange={handleInputChange}
+                  className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                />
+                <label
+                  htmlFor={`feature-${feature.id}`}
+                  className="text-sm sm:text-base text-gray-700 cursor-pointer"
+                >
+                  {feature.name}
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Nearby Places */}
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
