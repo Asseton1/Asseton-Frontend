@@ -75,6 +75,8 @@ function PropertyList() {
       const params = {
         page: currentPage,
         page_size: PROPERTIES_PER_PAGE,
+        // Always use backend admin fast-list path (avoids COUNT/JOINs on Azure).
+        search_mode: 'admin',
       };
 
       if (debouncedSearch) {
@@ -91,6 +93,7 @@ function PropertyList() {
       let propertiesData = [];
       let totalItems = 0;
       let responsePageSize = PROPERTIES_PER_PAGE;
+      let hasNext = false;
 
       if (response) {
         if (Array.isArray(response)) {
@@ -103,6 +106,7 @@ function PropertyList() {
               ? response.count
               : response.results.length;
           responsePageSize = response.pageSize || params.page_size;
+          hasNext = Boolean(response.next);
         } else if (Array.isArray(response.data)) {
           propertiesData = response.data;
           totalItems = response.data.length;
@@ -114,6 +118,7 @@ function PropertyList() {
               ? response.data.count
               : response.data.results.length;
           responsePageSize = response.pageSize || params.page_size;
+          hasNext = Boolean(response.data.next);
         } else if (response.error === 'invalid-page') {
           if (currentPage > 1) {
             setCurrentPage(1);
@@ -130,15 +135,15 @@ function PropertyList() {
         }
       }
 
-      const pages = Math.max(1, Math.ceil(totalItems / responsePageSize) || 1);
+      // Prefer next-link for page estimate (admin soft-count path).
+      const pagesFromCount = Math.max(1, Math.ceil(totalItems / responsePageSize) || 1);
+      const pages = hasNext
+        ? Math.max(pagesFromCount, currentPage + 1)
+        : Math.max(1, Math.min(pagesFromCount, currentPage));
+
       setProperties(propertiesData);
       setTotalCount(totalItems);
       setTotalPages(pages);
-
-      // If filter/search shrunk results and current page is past the end, go to last page
-      if (totalItems > 0 && currentPage > pages) {
-        setCurrentPage(pages);
-      }
     } catch (err) {
       if (requestId !== requestIdRef.current) return;
       setError('Failed to fetch properties. Please try again.');
