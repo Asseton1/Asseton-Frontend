@@ -208,6 +208,8 @@ export const propertyAPI = {
 
       // Search query
       if (params.search) queryParams.append("search", params.search);
+      // Optional: admin/lite search skips heavy description + features M2M on backend
+      if (params.search_mode) queryParams.append("search_mode", params.search_mode);
 
       const queryString = queryParams.toString();
       const url = `/properties/properties/${queryString ? `?${queryString}` : ""}`;
